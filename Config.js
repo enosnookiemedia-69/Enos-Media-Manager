@@ -63,58 +63,113 @@ CONFIG.SHEETS = {
 
 
 // ==========================================================
-// MEDIA SHEET COLUMN INDEXES
+// MEDIA DATABASE COLUMN INDEXES
+// ==========================================================
+//
+// IMPORTANT
+// ----------------------------------------------------------
+// Column numbers are 1-based to match Google Sheets.
+//
+// Example:
+// Spreadsheet Column A = 1
+// Spreadsheet Column B = 2
+//
+// These values are the single source of truth
+// for accessing Media Database columns.
 // ==========================================================
 
-// IMPORTANT
-// Column numbers are 1-based to match SpreadsheetApp.
 
 const COL = {
 
-  // ------------------------------------------------------
-  // Auto Metadata
-  // ------------------------------------------------------
+
+  // ========================================================
+  // FILE & DRIVE METADATA
+  // Columns A - G
+  // ========================================================
 
   THUMBNAIL: 1,
+
   FILE_NAME: 2,
+
   FOLDER_PATH: 3,
+
   FILE_ID: 4,
+
   FILE_SIZE: 5,
+
   DATE_CREATED: 6,
+
   URL: 7,
 
+
+
+  // ========================================================
+  // IMAGE METADATA
+  // Columns H - Q
+  // ========================================================
+
   YEAR: 8,
+
   PHOTOGRAPHER: 9,
+
   CAMERA_MODEL: 10,
+
   EXIF_CAMERA: 11,
 
   FILE_EXTENSION: 12,
+
   MIME_TYPE: 13,
 
   WIDTH: 14,
+
   HEIGHT: 15,
+
   ORIENTATION: 16,
+
   DATE_TAKEN: 17,
 
+
+
+  // ========================================================
+  // PROCESSING STATUS
+  // Columns R - S
+  // ========================================================
+
   METADATA_UPDATED: 18,
+
   THUMBNAIL_STATUS: 19,
 
-  // ------------------------------------------------------
-  // Editorial
-  // ------------------------------------------------------
+
+
+  // ========================================================
+  // EDITORIAL REVIEW
+  // Columns T - AB
+  // ========================================================
 
   LAYOUT_SUITABILITY: 20,
+
   PRINT_SUITABILITY: 21,
 
   CATEGORY: 22,
+
   GRADE: 23,
+
   STORY_VALUE: 24,
 
   HERO_IMAGE: 25,
+
   BOOK_CANDIDATE: 26,
+
   FINAL_BOOK: 27,
 
-    SELECTION_STAGE: 28,
+  SELECTION_STAGE: 28,
+
+
+
+  // ========================================================
+  // BOOK PRODUCTION
+  // Columns AC - AF
+  // ========================================================
 
   CAPTION: 29,
 
@@ -123,6 +178,13 @@ const COL = {
   PAGE: 31,
 
   NOTES: 32,
+
+
+
+  // ========================================================
+  // REVIEW TRACKING
+  // Columns AG - AH
+  // ========================================================
 
   REVIEW_DATE: 33,
 

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<base target="_top">
+
+<?!= include("DashboardStylesHTML"); ?>
+
+</head>
+
+
+<body>
+
+<div class="dashboard">
+
+
+  <div class="logo">
+
+    <img src="YOUR_LOGO_URL">
+
+  </div>
+
+
+
+  <div class="card">
+
+    <h3>Project</h3>
+
+
+    <div class="stat">
+      <span>Version</span>
+      <span><?= dashboard.version ?></span>
+    </div>
+
+
+    <div class="stat">
+      <span>Images</span>
+      <span><?= dashboard.imageCount ?></span>
+    </div>
+
+
+    <div class="stat">
+      <span>Reviewed</span>
+      <span><?= dashboard.reviewedCount ?></span>
+    </div>
+
+
+  </div>
+
+
+  <div class="card">
+
+    <h3>Book Progress</h3>
+
+
+    <div class="stat">
+      <span>Book Candidates</span>
+      <span><?= dashboard.candidateCount ?></span>
+    </div>
+
+
+    <div class="stat">
+      <span>Final Images</span>
+      <span><?= dashboard.finalCount ?></span>
+    </div>
+
+
+  </div>
+
+
+</div>

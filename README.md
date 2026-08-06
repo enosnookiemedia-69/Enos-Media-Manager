@@ -84,15 +84,20 @@ Including:
 
 ## Review System
 
-The review tools allow images to be browsed and assessed directly inside Google Sheets.
+The review system provides an editorial workspace for assessing images before book selection.
 
-Features currently under development include:
+Current capabilities:
 
-* Image browser
-* Review interface
-* Navigation controls
-* Selection tools
-* Editorial workflow improvements
+* Image loading from Media Database
+* Reviewer position tracking
+* Next/previous image navigation
+* Creative review fields
+* Review status tracking
+* Review date tracking
+* Book candidate selection
+* Final book selection
+
+The review workflow separates technical metadata from creative decisions, allowing automated information and editorial judgement to coexist.
 
 ---
 

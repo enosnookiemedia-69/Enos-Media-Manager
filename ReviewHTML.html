@@ -119,19 +119,34 @@
     </label>
 
 
-    <label>
-      Layout
-      <select id="layoutSuitability">
-        <option></option>
-        <option>Hero Image</option>
-        <option>Double Spread</option>
-        <option>Full Page</option>
-        <option>Half Page</option>
-        <option>Supporting Image</option>
-        <option>Detail Image</option>
-        <option>Needs Crop</option>
-      </select>
-    </label>
+<label>
+  Layout
+  <select id="layoutSuitability">
+
+    <option value=""></option>
+
+    <option value="Hero">
+      Hero — Cover or chapter opener
+    </option>
+
+    <option value="Double Spread">
+      Double Spread — Across two pages
+    </option>
+
+    <option value="Full Page">
+      Full Page — Single page feature
+    </option>
+
+    <option value="Half Page">
+      Half Page — Shared page layout
+    </option>
+
+    <option value="Quarter Page">
+      Quarter Page — Supporting image
+    </option>
+
+  </select>
+</label>
 
 
     <label>
@@ -211,15 +226,35 @@
     </div>
 
     <div>
-      <label>Category</label>
-      <span id="category"></span>
+
+      <label>
+        Category
+      </label>
+
+      <select id="category">
+
+        <option></option>
+
+        <option>Cover</option>
+        <option>Where's Enos?</option>
+        <option>Setup & Workshop</option>
+        <option>Build Onsite</option>
+        <option>Jollers & People</option>
+        <option>Artworks & Burns</option>
+        <option>Landscapes & Nature</option>
+        <option>Nightlife & DJs</option>
+        <option>Strike & Packing</option>
+        <option>Portraits & Extras</option>
+
+      </select>
+
     </div>
 
   </div>
 
 </div>
 
-  <!-- CAPTION AREA -->
+<!-- CAPTION AREA -->
 
 <div class="caption-section">
 
@@ -335,6 +370,9 @@ function populateReview(data) {
   document.getElementById("grade").value =
     data.creative.grade || "";
 
+  document.getElementById("selectionStage").value =
+    data.creative.selectionStage || "";
+
 
   document.getElementById("storyValue").value =
     data.creative.storyValue || "";
@@ -395,37 +433,40 @@ function saveCurrentReview() {
 
   const reviewData = {
 
-    grade:
-      document.getElementById("grade").value,
+  grade:
+    document.getElementById("grade").value,
 
-    storyValue:
-      document.getElementById("storyValue").value,
+  selectionStage:
+    document.getElementById("selectionStage").value,
 
-    layoutSuitability:
-      document.getElementById("layoutSuitability").value,
+  storyValue:
+    document.getElementById("storyValue").value,
 
-    printSuitability:
-      document.getElementById("printSuitability").value,
+  layoutSuitability:
+    document.getElementById("layoutSuitability").value,
 
-    category:
-      document.getElementById("category").value,  
+  printSuitability:
+    document.getElementById("printSuitability").value,
 
-    heroImage:
-      document.getElementById("heroImage").checked,
+  category:
+    document.getElementById("category").value,
 
-    bookCandidate:
-      document.getElementById("bookCandidate").checked,
+  heroImage:
+    document.getElementById("heroImage").checked,
 
-    finalBook:
-      document.getElementById("finalBook").checked,
+  bookCandidate:
+    document.getElementById("bookCandidate").checked,
 
-    caption:
-      document.getElementById("caption").value,
+  finalBook:
+    document.getElementById("finalBook").checked,
 
-    notes:
-      document.getElementById("notes").value
+  caption:
+    document.getElementById("caption").value,
 
-  };
+  notes:
+    document.getElementById("notes").value
+
+};
 
 
   saveButton.innerText =
