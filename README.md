@@ -1,77 +1,264 @@
 # 📸 Enos Media Manager
 
-Google Apps Script application for managing the Enos Bookie media archive.
+A Google Apps Script application for managing the complete Enos Nookie media archive and supporting the production of the **Enos Bookie** coffee table book.
 
-## Current Features
+---
 
-- Google Drive synchronization
-- Recursive folder scanning
-- Metadata extraction
-- Editorial workflow
-- Google Sheets integration
+# Overview
 
-## Status
+The Enos Media Manager is a custom-built media management system developed specifically for the Enos Nookie project.
 
-Version 2.0.0
+The application synchronises photographs stored in Google Drive with a structured Google Sheets database, allowing thousands of images to be organised, reviewed, categorised and selected for publication.
 
-Currently under active development.
+Rather than acting as a traditional Digital Asset Management (DAM) system, the project focuses on the editorial workflow required to curate imagery for printed books and future digital archives.
 
+The project is written entirely in **Google Apps Script** and integrates closely with Google Drive and Google Sheets.
 
+---
 
+# Project Goals
 
-## Developer Workflow
+The application aims to:
 
-Source of Truth
+* Synchronise media from Google Drive
+* Automatically catalogue photographs
+* Extract metadata from images and folders
+* Preserve manual editorial information
+* Assist with image review and selection
+* Produce curated image lists for book production
+* Reduce repetitive administrative work
 
-The Google Apps Script project is the master copy of the Enos Media Manager.
+Ultimately the goal is to make managing several thousand photographs as simple and efficient as possible.
+
+---
+
+# Current Features
+
+## Media Synchronisation
+
+* Google Drive integration
+* Recursive folder scanning
+* Automatic detection of new images
+* Updates existing records
+* Preserves manual spreadsheet data
+* Logging and progress reporting
+
+---
+
+## Metadata Management
+
+Automatically records information including:
+
+* File name
+* Folder path
+* Google Drive File ID
+* File size
+* File extension
+* Photographer
+* Camera model
+* Year
+* Image dimensions
+* Orientation
+* Creation dates
+* Drive links
+
+---
+
+## Editorial Workflow
+
+Supports the complete editorial process for the Enos Bookie project.
+
+Including:
+
+* Categories
+* Grades
+* Story Value
+* Hero Images
+* Book Candidates
+* Final Book Selection
+* Captions
+* Page planning
+* Notes
+
+---
+
+## Review System
+
+The review tools allow images to be browsed and assessed directly inside Google Sheets.
+
+Features currently under development include:
+
+* Image browser
+* Review interface
+* Navigation controls
+* Selection tools
+* Editorial workflow improvements
+
+---
+
+# Technology
+
+The project uses:
+
+* Google Apps Script
+* Google Drive
+* Google Sheets
+* Google Drive Advanced Service
+* clasp
+* Git
+* GitHub
+
+---
+
+# Project Structure
+
+The application is divided into focused modules.
+
+| File               | Responsibility                          |
+| ------------------ | --------------------------------------- |
+| Menu.js            | User menus and application entry points |
+| Config.js          | Global configuration                    |
+| Sync.js            | Synchronisation workflow                |
+| Scanner.js         | Google Drive folder scanning            |
+| Metadata.js        | Metadata extraction and caching         |
+| Database.js        | Spreadsheet database operations         |
+| MediaObject.js     | Standard media object model             |
+| BookList.js        | Book image management                   |
+| Review.js          | Review engine                           |
+| ReviewUI.js        | Review interface                        |
+| ReviewHTML.html    | Review dialog                           |
+| Sidebar.js         | Sidebar interface                       |
+| Utilities.js       | Shared helper functions                 |
+| Logging.js         | Logging system                          |
+| SelectionEngine.js | Editorial scoring and selection logic   |
+| Thumbnails.js      | Thumbnail generation                    |
+| Test.js            | Development testing                     |
+
+---
+
+# Development Philosophy
+
+The project follows several design principles.
+
+* Small, focused modules
+* Minimal code duplication
+* Centralised configuration
+* Well documented source code
+* Consistent object structures
+* Separation between automated and manual data
+* Maintainability before complexity
+
+Where practical, configuration values are stored centrally rather than hard-coded throughout the project.
+
+---
+
+# Version
+
+Current Version:
+
+**2.0.0**
+
+Status:
+
+**Active Development**
+
+The application is under continuous development with new features being added as the editorial workflow evolves.
+
+---
+
+# Source Control
+
+## Source of Truth
+
+The **Google Apps Script project** is the master copy of the application.
 
 GitHub is used for:
 
-Version history
-Daily backups
-Sharing the source code with collaborators for review
+* Version history
+* Daily backups
+* Source code sharing
+* Documentation
 
-## Development is currently performed directly in the Apps Script editor.
+The GitHub repository is **not** considered the primary development environment.
 
-Daily Workflow
-Make changes in Google Apps Script.
-Save and test the project.
-Pull the latest code to the local project:
+---
+
+# Developer Workflow
+
+Development is currently performed directly in the Google Apps Script editor.
+
+Daily workflow:
+
+1. Develop in Apps Script.
+2. Save and test changes.
+3. Pull the latest project locally.
+
+```bash
 clasp pull
-Check the changes:
+```
+
+4. Review changes.
+
+```bash
 git status
-Stage all modified files:
+```
+
+5. Stage modified files.
+
+```bash
 git add .
-Commit the changes with a meaningful message:
-git commit -m "Describe the changes"
-Push the backup to GitHub:
-git push
-Notes
-Apps Script is always the source of truth.
-Do not edit files directly on GitHub.
-Avoid using automatic Git synchronisation features that may create unexpected commits or merge histories.
-If development ever moves to VS Code in the future, this workflow can be updated accordingly.
-Typical Commands
-# Pull latest Apps Script files
-clasp pull
+```
 
-# View changes
-git status
+6. Commit changes.
 
-# Stage files
-git add .
-
-# Commit
+```bash
 git commit -m "Meaningful description"
+```
 
-# Backup to GitHub
+7. Push to GitHub.
+
+```bash
 git push
-Repository Purpose
+```
 
-This repository serves as:
+---
 
-A version-controlled backup of the Apps Script project.
-A place for collaborators to review the source code.
-A historical record of project development.
+# Repository Purpose
 
-The GitHub repository is not considered the primary development environment.
+This repository exists to provide:
+
+* Version control
+* Daily project backups
+* Code review
+* Historical development record
+* Project documentation
+
+The repository mirrors the Apps Script project and should remain synchronised with it.
+
+---
+
+# Future Development
+
+Planned improvements include:
+
+* Faster synchronisation
+* Improved metadata extraction
+* Enhanced review workflow
+* Batch editing tools
+* Better thumbnail management
+* Dashboard and statistics
+* Advanced search and filtering
+* Duplicate detection
+* Book production tools
+* Export utilities
+* Performance optimisation
+
+---
+
+# Acknowledgements
+
+Developed for the **Enos Nookie** project to support the creation and long-term management of the Enos Bookie media archive.
+
+---
+
+© 2026 Enos Nookie
