@@ -496,20 +496,18 @@ function saveCurrentReview() {
 
 
     .withFailureHandler(
-      function(error) {
+  function(error) {
 
-        console.error(error);
+    console.error(error);
 
+    saveButton.innerText =
+      "Save";
 
-        saveButton.innerText =
-          "Save";
+    saveStatus.innerText =
+      error.message;
 
-
-        saveStatus.innerText =
-          "Save failed";
-
-      }
-    )
+  }
+)
 
 
     .saveReview(reviewData);

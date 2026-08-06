@@ -40,3 +40,13 @@ function testDriveAPI() {
 }
 
 
+
+
+
+
+function testReviewerObject(){
+
+  Logger.log(typeof REVIEWER);
+
+}
+

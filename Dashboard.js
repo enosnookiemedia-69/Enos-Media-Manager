@@ -38,22 +38,35 @@ const DASHBOARD = {
 // OPEN DASHBOARD
 // ==========================================================
 
-const template = HtmlService
-    .createTemplateFromFile(
-      "DashboardHTML"
+function openDashboard() {
+
+
+  const template =
+    HtmlService
+      .createTemplateFromFile(
+        "DashboardHTML"
+      );
+
+
+  template.dashboard =
+    getDashboardData();
+
+
+  const html =
+    template
+      .evaluate()
+      .setTitle(
+        DASHBOARD.TITLE
+      );
+
+
+  SpreadsheetApp
+    .getUi()
+    .showSidebar(
+      html
     );
 
-
-template.dashboard =
-  getDashboardData();
-
-
-
-const html = template
-    .evaluate()
-    .setTitle(
-      DASHBOARD.TITLE
-    );
+}
 
 
 // ==========================================================
