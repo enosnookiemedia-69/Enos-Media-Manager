@@ -15,7 +15,6 @@
 // ==========================================================
 
 
-
 const APP = {
 
   NAME: "Enos Media Manager",
@@ -26,22 +25,22 @@ const APP = {
 
   COPYRIGHT: "© 2026 Enos Nookie",
 
-  DESCRIPTION: "Google Drive media catalogue and editorial management system",
+  DESCRIPTION:
+    "Google Drive media catalogue and editorial management system",
 
   CREATED: "2026-07-08",
 
-  LAST_UPDATED: "2026-07-09"
+  LAST_UPDATED: "2026-07-09",
+
+  TIMEZONE: "Africa/Johannesburg"
 
 };
 
 
-
-// ==========================================================
-// CONFIGURATION OBJECT
-// ==========================================================
+// Master configuration object.
+// Additional configuration sections are attached below.
 
 const CONFIG = {};
-
 
 
 // ==========================================================
@@ -56,16 +55,25 @@ CONFIG.SHEETS = {
 
   BOOK: "Final Book Image Possibilities",
 
-  LOG: "Sync Log"
+  LOG: "Sync Log",
+
+  DASHBOARD: "Dashboard"
 
 };
 
 
 // ==========================================================
-// MEDIA SHEET COLUMN INDEXS
+// MEDIA SHEET COLUMN INDEXES
 // ==========================================================
 
+// IMPORTANT
+// Column numbers are 1-based to match SpreadsheetApp.
+
 const COL = {
+
+  // ------------------------------------------------------
+  // Auto Metadata
+  // ------------------------------------------------------
 
   THUMBNAIL: 1,
   FILE_NAME: 2,
@@ -74,27 +82,51 @@ const COL = {
   FILE_SIZE: 5,
   DATE_CREATED: 6,
   URL: 7,
+
   YEAR: 8,
   PHOTOGRAPHER: 9,
   CAMERA_MODEL: 10,
-  FILE_EXTENSION: 11,
-  WIDTH: 12,
-  HEIGHT: 13,
-  ORIENTATION: 14,
-  DATE_TAKEN: 15,
-  LAYOUT_SUITABILITY: 16,
-  PRINT_SUITABILITY: 17,
-  CATEGORY: 18,
-  GRADE: 19,
-  STORY_VALUE: 20,
-  HERO_IMAGE: 21,
-  BOOK_CANDIDATE: 22,
-  FINAL_BOOK: 23,
-  SELECTION_STAGE: 24,
-  CAPTION: 25,
-  SPREAD: 26,
-  PAGE: 27,
-  NOTES: 28
+  EXIF_CAMERA: 11,
+
+  FILE_EXTENSION: 12,
+  MIME_TYPE: 13,
+
+  WIDTH: 14,
+  HEIGHT: 15,
+  ORIENTATION: 16,
+  DATE_TAKEN: 17,
+
+  METADATA_UPDATED: 18,
+  THUMBNAIL_STATUS: 19,
+
+  // ------------------------------------------------------
+  // Editorial
+  // ------------------------------------------------------
+
+  LAYOUT_SUITABILITY: 20,
+  PRINT_SUITABILITY: 21,
+
+  CATEGORY: 22,
+  GRADE: 23,
+  STORY_VALUE: 24,
+
+  HERO_IMAGE: 25,
+  BOOK_CANDIDATE: 26,
+  FINAL_BOOK: 27,
+
+    SELECTION_STAGE: 28,
+
+  CAPTION: 29,
+
+  SPREAD: 30,
+
+  PAGE: 31,
+
+  NOTES: 32,
+
+  REVIEW_DATE: 33,
+
+  REVIEW_STATUS: 34
 
 };
 
@@ -114,6 +146,8 @@ const COL = {
  * • Dashboard statistics
  */
 
+// Keep in display order.
+
 CONFIG.CATEGORIES = [
 
   "Setup & Workshop",
@@ -123,7 +157,7 @@ CONFIG.CATEGORIES = [
   "Landscapes & Nature",
   "Nightlife & DJs",
   "Strike & Packing",
-  "Cover"
+  "Portraits & Extras"
 
 ];
 
@@ -131,10 +165,15 @@ CONFIG.CATEGORIES = [
 // IMAGE METADATA
 // ==========================================================
 /**
- * Standard metadata values used throughout the application.
+ * Standard metadata values used throughout
+ * the application.
  */
 
+
+// ----------------------------------------------------------
 // Image Grades
+// ----------------------------------------------------------
+
 CONFIG.GRADES = [
 
   "S",
@@ -145,7 +184,11 @@ CONFIG.GRADES = [
 
 ];
 
-// Image Orientation
+
+// ----------------------------------------------------------
+// Image Orientations
+// ----------------------------------------------------------
+
 CONFIG.ORIENTATIONS = [
 
   "Landscape",
@@ -155,7 +198,11 @@ CONFIG.ORIENTATIONS = [
 
 ];
 
+
+// ----------------------------------------------------------
 // Editing Status
+// ----------------------------------------------------------
+
 CONFIG.EDIT_STATUS = [
 
   "Not Edited",
@@ -164,12 +211,16 @@ CONFIG.EDIT_STATUS = [
 
 ];
 
+
+
 // ==========================================================
 // EDITORIAL WORKFLOW
 // ==========================================================
-
 /**
- * Editorial progression for book selection.
+ * Official workflow used during image selection.
+ *
+ * Images should progress through these stages
+ * in order.
  */
 
 CONFIG.SELECTION_STAGES = [
@@ -183,28 +234,36 @@ CONFIG.SELECTION_STAGES = [
 
 ];
 
+
+
 // ==========================================================
 // BOOK INFORMATION
 // ==========================================================
 /**
- * General information about the Enos Book project.
+ * General information relating to the
+ * Enos Book project.
  */
 
 CONFIG.BOOK = {
 
   TITLE: "Enos Bookie",
+
   SUBTITLE: "A Monkey's Guide to Enos Nookie",
 
   START_YEAR: 2023,
+
   END_YEAR: 2026
 
 };
+
+
 
 // ==========================================================
 // BOOK ASSETS
 // ==========================================================
 /**
- * Non-photographic assets required for the book.
+ * Non-photographic assets required
+ * for the finished publication.
  */
 
 CONFIG.BOOK_ASSETS = [
@@ -220,48 +279,122 @@ CONFIG.BOOK_ASSETS = [
 
 ];
 
+
+
 // ==========================================================
 // DASHBOARD TARGETS
 // ==========================================================
 /**
- * Editorial targets shown on the dashboard.
+ * Editorial targets displayed on
+ * the dashboard.
+ *
+ * These are goals only and do not
+ * affect application logic.
  */
 
 CONFIG.TARGETS = {
 
-  BOOK_IMAGES: 300,
+  TARGET_EDITS: 300,
+
   SHORTLIST: 150,
-  FINAL_IMAGES: 100,
+
+  FINAL_BOOK: 100,
 
   MIN_S_PER_CATEGORY: 8,
+
   MIN_A_PER_CATEGORY: 8
 
 };
+
+
 
 // ==========================================================
 // SUPPORTED FILE TYPES
 // ==========================================================
 /**
  * Supported image file extensions.
+ *
+ * These should always be lowercase.
  */
 
 CONFIG.FILE_TYPES = [
 
-  "jpg",
-  "jpeg",
-  "png",
-  "gif",
-  "tif",
-  "tiff",
+  "arw",
   "cr2",
   "cr3",
-  "nef",
-  "arw",
   "dng",
+  "gif",
   "heic",
+  "jpeg",
+  "jpg",
+  "nef",
+  "png",
+  "tif",
+  "tiff",
   "webp"
 
 ];
+
+
+
+// ==========================================================
+// MEDIA SETTINGS
+// ==========================================================
+/**
+ * General media scanning settings.
+ */
+
+CONFIG.MEDIA = {
+
+  // Drive API
+  PAGE_SIZE: 1000,
+
+  ROOT_SETTING: "Media Root Folder ID",
+
+  // File Filtering
+  MIME_PREFIX: "image/",
+
+  INCLUDE_SUBFOLDERS: true,
+
+  SKIP_HIDDEN: true,
+
+  // Synchronisation
+  UPDATE_EXISTING: true,
+
+  CREATE_THUMBNAILS: true
+
+};
+
+
+// ==========================================================
+// DRIVE MIME TYPES
+// ==========================================================
+/**
+ * Google Drive MIME type constants.
+ *
+ * Used when scanning Google Drive and
+ * validating imported files.
+ */
+
+CONFIG.MIME = {
+
+  IMAGE: "image/",
+
+  FOLDER: "application/vnd.google-apps.folder",
+
+  JPEG: "image/jpeg",
+
+  PNG: "image/png",
+
+  TIFF: "image/tiff",
+
+  GIF: "image/gif",
+
+  WEBP: "image/webp",
+
+  HEIC: "image/heic"
+
+};
 
 // ==========================================================
 // THUMBNAIL SETTINGS
@@ -293,7 +426,16 @@ CONFIG.DEBUG = {
 };
 
 // ==========================================================
-// CONFIGURATION FUNCTIONS
+// SETTINGS CACHE
+// ==========================================================
+
+// Stores Settings sheet values in memory during execution.
+
+let SETTINGS_CACHE = null;
+
+
+// ==========================================================
+// SPREADSHEET HELPERS
 // ==========================================================
 
 /**
@@ -319,6 +461,11 @@ function getSheet(sheetName) {
 
 }
 
+
+// ==========================================================
+// WORKSHEET HELPERS
+// ==========================================================
+
 /**
  * Returns the Settings worksheet.
  *
@@ -327,6 +474,7 @@ function getSheet(sheetName) {
 function getSettingsSheet() {
 
   return getSheet(CONFIG.SHEETS.SETTINGS);
+
 }
 
 /**
@@ -337,20 +485,92 @@ function getSettingsSheet() {
 function getMediaSheet() {
 
   return getSheet(CONFIG.SHEETS.MEDIA);
+
 }
 
+/**
+ * Returns the Book worksheet.
+ *
+ * @returns {Sheet}
+ */
+function getBookSheet() {
+
+  return getSheet(CONFIG.SHEETS.BOOK);
+
+}
 
 /**
- * Returns all settings from the Settings worksheet.
+ * Returns the Log worksheet.
+ *
+ * @returns {Sheet}
+ */
+function getLogSheet() {
+
+  return getSheet(CONFIG.SHEETS.LOG);
+
+}
+
+/**
+ * Returns the Dashboard worksheet.
+ *
+ * @returns {Sheet}
+ */
+function getDashboardSheet() {
+
+  return getSheet(CONFIG.SHEETS.DASHBOARD);
+
+}
+
+// Future worksheet helpers
+//
+// getContributorSheet()
+// getArchiveSheet()
+// getSettingsRange()
+
+
+
+// ==========================================================
+// SETTINGS HELPERS
+// ==========================================================
+
+/**
+ * Returns all settings.
+ *
+ * Settings are cached during execution
+ * to avoid repeatedly reading the sheet.
  *
  * @returns {Array}
  */
 function getAllSettings() {
 
-  return getSettingsSheet()
-    .getDataRange()
-    .getValues();
+  if (SETTINGS_CACHE) {
+
+    return SETTINGS_CACHE;
+
+  }
+
+  SETTINGS_CACHE =
+    getSettingsSheet()
+      .getDataRange()
+      .getValues();
+
+  return SETTINGS_CACHE;
+
 }
+
+
+/**
+ * Clears the settings cache.
+ *
+ * Forces the next call to getAllSettings()
+ * to reload values from the Settings sheet.
+ */
+function clearSettingsCache() {
+
+  SETTINGS_CACHE = null;
+
+}
+
 
 /**
  * Returns a setting value by its name.
@@ -365,8 +585,65 @@ function getSetting(settingName) {
   for (let i = 1; i < settings.length; i++) {
 
     if (settings[i][0] === settingName) {
+
       return settings[i][1];
+
     }
+
   }
+
+  // --------------------------------------------------------
+  // Setting not found
+  // --------------------------------------------------------
+
+  warning(
+
+    "Setting not found: " + settingName
+
+  );
+
   return null;
+
+}
+
+
+/**
+ * Updates a setting value in the Settings sheet.
+ *
+ * If the setting does not exist,
+ * it will be added automatically.
+ *
+ * @param {string} settingName
+ * @param {*} value
+ */
+
+function setSetting(settingName, value) {
+
+  const sheet = getSettingsSheet();
+
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+
+    if (data[i][0] === settingName) {
+
+      sheet.getRange(i + 1, 2).setValue(value);
+
+      clearSettingsCache();
+
+      return;
+
+    }
+
+  }
+
+  // --------------------------------------------------------
+  // Setting not found
+  // Add it automatically.
+  // --------------------------------------------------------
+
+  sheet.appendRow([settingName, value]);
+
+  clearSettingsCache();
+
 }

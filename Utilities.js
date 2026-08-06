@@ -2,18 +2,25 @@
  * ==========================================================
  * UTILITIES.GS
  * ----------------------------------------------------------
- * Shared helper functions used throughout the application.
+ * General helper functions used throughout the application.
  *
- * Purpose:
- * • Display messages
- * • Logging
+ * Responsibilities
+ * ----------------
+ * • User messages
  * • Formatting
  * • Validation
  * • General helper functions
+ * • Date helpers
+ * • Array helpers
+ * • Object helpers
  *
+ * NOTE
+ * ----
+ * Logging functions belong in Logging.gs.
  * This file should never contain application-specific logic.
  * ==========================================================
  */
+
 
 
 // ==========================================================
@@ -21,7 +28,7 @@
 // ==========================================================
 
 /**
- * Display a message box.
+ * Displays a message box.
  *
  * @param {string} title
  * @param {string} message
@@ -40,7 +47,7 @@ function showMessage(title, message) {
 
 
 /**
- * Display an error message.
+ * Displays an error message.
  *
  * @param {string} message
  */
@@ -58,86 +65,59 @@ function showError(message) {
 
 
 /**
- * Display a success message.
+ * Displays a success message.
  *
- * Uses logging during script execution.
+ * This can later be replaced with
+ * a toast, sidebar notification,
+ * or dialog without changing any
+ * other code.
  *
  * @param {string} message
  */
 function showSuccess(message) {
 
-  info(
-    "[SUCCESS] " + message
-  );
+  SpreadsheetApp
+    .getActiveSpreadsheet()
+    .toast(
+      message,
+      "Success",
+      5
+    );
 
 }
 
-// ==========================================================
-// LOGGING
-// ==========================================================
-
-/**
- * Write an information message to the execution log.
- *
- * @param {string} message
- */
-function info(message) {
-
-  console.log("[INFO] " + message);
-
-}
-
-
-/**
- * Write a warning message to the execution log.
- *
- * @param {string} message
- */
-function warn(message) {
-
-  console.log("[WARNING] " + message);
-
-}
-
-
-/**
- * Write an error message to the execution log.
- *
- * @param {string} message
- */
-function showError(message) {
-
-  info(
-    "[ERROR] " + message
-  );
-
-}
-
-
-/**
- * Standard log message.
- *
- * @param {string} message
- */
-function log(message) {
-
-  info(message);
-
-}
 
 
 // ==========================================================
 // FORMATTING
 // ==========================================================
 
-// Future formatting functions go here.
-//
-// Examples:
-//
-// formatDate()
-// formatFileSize()
-// formatDuration()
+/**
+ * Future formatting functions.
+ *
+ * Examples:
+ *
+ * formatDate()
+ * formatFileSize()
+ * formatDimensions()
+ * formatOrientation()
+ */
 
+
+
+// ==========================================================
+// DATE HELPERS
+// ==========================================================
+
+/**
+ * Future date helper functions.
+ *
+ * Examples:
+ *
+ * getCurrentTimestamp()
+ * formatTimestamp()
+ * daysBetween()
+ */
 
 
 
@@ -145,25 +125,111 @@ function log(message) {
 // VALIDATION
 // ==========================================================
 
-// Future validation functions go here.
-//
-// Examples:
-//
-// isImageFile()
-// isEmpty()
-// isSupportedExtension()
-
+/**
+ * Future validation functions.
+ *
+ * Examples:
+ *
+ * isImageFile()
+ * isSupportedExtension()
+ * isBlank()
+ * isFolder()
+ */
 
 
 
 // ==========================================================
-// HELPERS
+// STRING HELPERS
 // ==========================================================
 
-// Future helper functions go here.
-//
-// Examples:
-//
-// generateUUID()
-// sleep()
-// chunkArray()
+/**
+ * Future string helper functions.
+ *
+ * Examples:
+ *
+ * capitalize()
+ * slugify()
+ * cleanFilename()
+ * trimWhitespace()
+ */
+
+
+
+// ==========================================================
+// ARRAY HELPERS
+// ==========================================================
+
+/**
+ * Future array helper functions.
+ *
+ * Examples:
+ *
+ * chunkArray()
+ * uniqueArray()
+ * flattenArray()
+ */
+
+
+
+// ==========================================================
+// OBJECT HELPERS
+// ==========================================================
+
+/**
+ * Future object helper functions.
+ *
+ * Examples:
+ *
+ * cloneObject()
+ * mergeObjects()
+ * objectHasValue()
+ */
+
+
+
+// ==========================================================
+// GOOGLE DRIVE HELPERS
+// ==========================================================
+
+/**
+ * Future Drive helper functions.
+ *
+ * Examples:
+ *
+ * getFolderPath()
+ * getFileExtension()
+ * buildDriveUrl()
+ */
+
+
+
+// ==========================================================
+// SPREADSHEET HELPERS
+// ==========================================================
+
+/**
+ * Future spreadsheet helper functions.
+ *
+ * Examples:
+ *
+ * getLastDataRow()
+ * autoResizeColumns()
+ * clearDataRange()
+ */
+
+
+
+// ==========================================================
+// GENERAL HELPERS
+// ==========================================================
+
+/**
+ * Future general helper functions.
+ *
+ * Examples:
+ *
+ * generateUUID()
+ * sleep()
+ * clamp()
+ * randomInteger()
+ */

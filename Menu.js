@@ -19,9 +19,11 @@
  * ==========================================================
  */
 
+
 // ==========================================================
 // MENU CREATION
 // ==========================================================
+
 
 /**
  * Creates the custom spreadsheet menu.
@@ -30,15 +32,56 @@ function onOpen() {
 
   SpreadsheetApp.getUi()
     .createMenu("📸 " + APP.NAME)
+
+    // ------------------------------------------------------
+    // Main
+    // ------------------------------------------------------
+
     .addItem("Open Media Manager", "showSidebar")
+
     .addSeparator()
+
+    // ------------------------------------------------------
+    // Media
+    // ------------------------------------------------------
+
     .addItem("Sync Media", "syncDrive")
     .addItem("Refresh Metadata", "refreshMetadataMenu")
     .addItem("Create Thumbnails", "createThumbnailsMenu")
+
     .addSeparator()
+
+     // ------------------------------------------------------
+    // Database
+    // ------------------------------------------------------
+
+    .addItem("Reset Media Database", "clearMediaDatabaseMenu")
+
+    .addSeparator()
+
+    // ------------------------------------------------------
+    // Book Creation
+    // ------------------------------------------------------
+
+    .addItem("Open Image Reviewer", "openImageReviewer")
+
+    .addSeparator()
+
+    
+    // ------------------------------------------------------
+    // Settings
+    // ------------------------------------------------------
+
     .addItem("Settings", "openSettings")
+
     .addSeparator()
+
+    // ------------------------------------------------------
+    // About
+    // ------------------------------------------------------
+
     .addItem("About", "showAbout")
+
     .addToUi();
 
 }
@@ -102,17 +145,51 @@ function refreshMetadataMenu() {
 }
 
 /**
- * Generates media thumbnails.
+ * Generates missing thumbnails.
  *
- * Placeholder for future implementation.
+ * Placeholder until thumbnail regeneration
+ * has been implemented.
  */
 function createThumbnailsMenu() {
 
   SpreadsheetApp.getUi().alert(
-    "Thumbnail generation has not been implemented yet."
+    "Thumbnail regeneration will be added in Version 2.\n\nNew thumbnails are already created automatically during Sync."
   );
 
 }
+
+
+/**
+ * Clears every imported media record.
+ *
+ * Keeps the header row intact.
+ */
+function clearMediaDatabaseMenu() {
+
+  const ui = SpreadsheetApp.getUi();
+
+  const response = ui.alert(
+    "Reset Media Database",
+    "This will delete every imported media record.\n\nThis cannot be undone.\n\nContinue?",
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    return;
+  }
+
+  clearMediaDatabase();
+
+  ui.alert(
+    "Media database has been cleared."
+  );
+
+}
+
+
+// ==========================================================
+// SETTINGS
+// ==========================================================
 
 /**
  * Opens the Settings worksheet.
@@ -122,6 +199,11 @@ function openSettings() {
   getSettingsSheet().activate();
 
 }
+
+
+// ==========================================================
+// DEVELOPMENT
+// ==========================================================
 
 /**
  * Rebuilds the custom menu.
@@ -133,3 +215,4 @@ function installMenu() {
   onOpen();
 
 }
+

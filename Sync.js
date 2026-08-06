@@ -8,10 +8,10 @@
  * ----------------
  * • Scan Google Drive folders
  * • Discover new media files
- * • Detect deleted files
- * • Add new media records
- * • Update existing records
- * • Keep the Media worksheet in sync with Google Drive
+ * • Prevent duplicate imports
+ * • Build media records
+ * • Add new records to Media Database
+ * • Prepare database for future update tracking
  *
  * This file communicates with:
  * • Google Drive
@@ -23,172 +23,219 @@
 
 
 // ==========================================================
+// SYNC STATISTICS
+// ==========================================================
+
+const SYNC_STATS = {
+
+  scanned: 0,
+  existing: 0,
+  added: 0,
+  errors: 0
+
+};
+
+
+// ==========================================================
 // MAIN SYNC
 // ==========================================================
 
 /**
- * Synchronises Google Drive with Media Database.
+ * Synchronises Google Drive with the Media Database.
+ *
+ * Scans Drive, builds complete media objects,
+ * and writes new records in batches.
  */
 function sync() {
 
+  // --------------------------------------------------------
+  // Reset Sync Statistics
+  // --------------------------------------------------------
+
+SYNC_STATS.scanned = 0;
+SYNC_STATS.existing = 0;
+SYNC_STATS.added = 0;
+SYNC_STATS.errors = 0;
+
   info("Starting media synchronisation...");
 
+  const folderId =
+    getSetting("Media Root Folder ID");
 
-  const folder = getRootFolder();
+  info("Scanning Drive folder...");
+
+
+  // --------------------------------------------------------
+  // Reset Scanner Statistics
+  // --------------------------------------------------------
+
+  SCAN_STATS.folders = 0;
+  SCAN_STATS.images = 0;
+  SCAN_STATS.skipped = 0;
+
+
+  // --------------------------------------------------------
+  // Scan Google Drive
+  // --------------------------------------------------------
+
+  const driveFiles =
+    scanFolderDriveAPI(folderId);
 
   info(
-    "Connected to folder: " +
-    folder.getName()
+    "Folders scanned: " +
+    SCAN_STATS.folders
   );
 
-const files = scanFolder(folder);
+  info(
+    "Images found: " +
+    SCAN_STATS.images
+  );
 
-const existingIds = getExistingFileIds();
+  info(
+    "Skipped files: " +
+    SCAN_STATS.skipped
+  );
 
   info(
     "Files found: " +
-    files.length
+    driveFiles.length
   );
 
 
-  const records = [];
+ // --------------------------------------------------------
+// Prepare Import
+// --------------------------------------------------------
+// Load existing File IDs.
+// Used to prevent duplicate imports.
+// --------------------------------------------------------
+
+const existingIds =
+  getExistingFileIds();
+
+const batchSize = 50;
+
+let records = [];
+
+  // --------------------------------------------------------
+  // Process Files
+  // --------------------------------------------------------
+
+  driveFiles.forEach(function(file, index) {
+
+  // ------------------------------------------------------
+  // Statistics
+  // ------------------------------------------------------
+
+  SYNC_STATS.scanned++;
+
+// ------------------------------------------------------
+// Existing Record?
+// ------------------------------------------------------
+// Already imported.
+// Skip immediately.
+// ------------------------------------------------------
+
+if (existingIds[file.id]) {
+
+  SYNC_STATS.existing++;
+
+  return;
+
+}
+
+// ------------------------------------------------------
+// Progress Logging
+// ------------------------------------------------------
+
+if (index % 100 === 0) {
+
+  info(
+    "Processing " +
+    (index + 1) +
+    " / " +
+    driveFiles.length
+  );
+
+}
 
 
-  files.forEach(function(file, index) {
+  // ------------------------------------------------------
+  // Import Media
+  // ------------------------------------------------------
 
+  try {
 
-    // Skip files already in database
+    let media = buildMediaObject(file);
 
-    if (existingIds[file.getId()]) {
+    media = populateMediaMetadata(media);
 
-      return;
-
+    if (CONFIG.DEBUG.ENABLED) {
+      Logger.log(media);
     }
 
-    if (index % 100 === 0) {
+    records.push(
+      mediaObjectToRow(media)
+    );
+
+    if (records.length >= batchSize) {
+
+      const written =
+        addMediaBatch(records);
+
+      SYNC_STATS.added += written;
 
       info(
-        "Processing files: " +
-        (index + 1) +
-        " / " +
-        files.length
+        "Written " +
+        written +
+        " records."
       );
+
+      records = [];
 
     }
 
+  }
 
-   const folderPath = getFolderPath(file);
+catch (err) {
 
-    const record = [
+  SYNC_STATS.errors++;
 
-      "",                         // Thumbnail
-
-      file.getName(),             // File Name
-
-      folderPath,                 // Folder Path
-
-      file.getId(),               // File ID
-
-      file.getSize(),             // File Size
-
-      file.getDateCreated(),      // Date Created
-
-      file.getUrl(),              // URL
-
-
-      getYear(folderPath),        // Year
-
-      getPhotographer(folderPath),// Photographer
-
-      "",                         // Camera Model
-
-
-      getFileExtension(file),     // Extension
-
-
-      "",                         // Width
-
-      "",                         // Height
-
-      "",                         // Orientation
-
-      "",                         // Date Taken
-
-
-      "",                         // Layout
-
-      "",                         // Print
-
-      "",                         // Category
-
-      "",                         // Grade
-
-      "",                         // Story Value
-
-      "",                         // Hero
-
-      "",                         // Book Candidate
-
-      "",                         // Final Book
-
-      "",                         // Selection Stage
-
-      "",                         // Caption
-
-      "",                         // Spread
-
-      "",                         // Page
-
-      ""                          // Notes
-
-    ];
-
-
-    records.push(record);
-
-
-  });
-
-
-if (records.length > 0) {
-
-
-  info(
-    "Writing " +
-    records.length +
-    " records to sheet..."
-  );
-
-
-  const sheet = getMediaSheet();
-
-
-  sheet
-    .getRange(
-      sheet.getLastRow() + 1,
-      1,
-      records.length,
-      records[0].length
-    )
-    .setValues(records);
-
-
-} else {
-
-  info(
-    "No new files found."
+  warning(
+    "Unable to import " +
+    file.title +
+    ": " +
+    err.message
   );
 
 }
 
-  showSuccess(
-  "Sync complete. Added " +
-  records.length +
-  " new files."
-);
+});   // End of driveFiles.forEach()
+
+// --------------------------------------------------------
+// Write Remaining Records
+// --------------------------------------------------------
+
+if (records.length) {
+
+  const written =
+    addMediaBatch(records);
+
+  SYNC_STATS.added += written;
 
 }
 
+
+// --------------------------------------------------------
+// Summary
+// --------------------------------------------------------
+
+info("--------------------------------");
+
+info("Scanned : " + SYNC_STATS.scanned);
+info("Existing : " + SYNC_STATS.existing);
+info("Added : " + SYNC_STATS.added);
+info("Errors : " + SYNC_STATS.errors);
+}
 
 // ==========================================================
 // DRIVE HELPERS
@@ -201,69 +248,10 @@ if (records.length > 0) {
  */
 function getRootFolder() {
 
-  const folderId = getSetting("Media Root Folder ID");
+  const folderId =
+    getSetting("Media Root Folder ID");
 
   return DriveApp.getFolderById(folderId);
 
 }
-
-
-// ==========================================================
-// DATABASE CHECKS
-// ==========================================================
-
-/**
- * Returns File IDs already stored in Media Database.
- *
- * Used to prevent duplicate imports.
- *
- * @returns {Object}
- */
-function getExistingFileIds() {
-
-  const sheet = getMediaSheet();
-
-  const lastRow = sheet.getLastRow();
-
-
-  const existing = {};
-
-
-  // No data yet
-  if (lastRow < 2) {
-
-    return existing;
-
-  }
-
-
-  const ids = sheet
-    .getRange(
-      2,
-      COL.FILE_ID,
-      lastRow - 1,
-      1
-    )
-    .getValues();
-
-
-
-  ids.forEach(function(row) {
-
-    const fileId = row[0];
-
-
-    if (fileId) {
-
-      existing[fileId] = true;
-
-    }
-
-  });
-
-
-  return existing;
-
-}
-
 
