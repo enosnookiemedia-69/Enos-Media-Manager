@@ -496,51 +496,67 @@ function saveReview(reviewData) {
 
 
   // ======================================================
-  // WRITE VALUES
-  // ======================================================
+// WRITE VALUES
+// ======================================================
 
-  Object.keys(updates)
-    .forEach(function(column){
+Object.keys(updates)
+  .forEach(function(column){
 
+    sheet
+      .getRange(
+        currentRow,
+        Number(column),
+        1,
+        1
+      )
+      .setValue(
+        updates[column]
+      );
 
-      sheet
-        .getRange(
-          currentRow,
-          Number(column),
-          1,
-          1
-        )
-        .setValue(
-          updates[column]
-        );
-
-    });
-
-
-  // ======================================================
-  // MOVE TO NEXT IMAGE
-  // ======================================================
+  });
 
 
-  saveReviewerPosition(
-    currentRow + 1
+// ======================================================
+// CALCULATE EDITORIAL SCORE
+// ======================================================
+
+const updatedRecord =
+  getMediaRecordByRow(currentRow);
+
+const score =
+  calculateSelectionScore(
+    updatedRecord
   );
 
-  return {
-
-    success:
-      true,
-
-    message:
-      "Review saved",
+Logger.log(
+  "Editorial Score: " + score
+);
 
 
-    nextRow:
-      currentRow + 1
+// ======================================================
+// MOVE TO NEXT IMAGE
+// ======================================================
 
-  };
+saveReviewerPosition(
+  currentRow + 1
+);
+
+return {
+
+  success:
+    true,
+
+  message:
+    "Review saved",
+
+  nextRow:
+    currentRow + 1
+
+};
 
 }
+
+
 
 // ==========================================================
 // NAVIGATION
@@ -549,6 +565,7 @@ function saveReview(reviewData) {
 /**
  * Moves to next image.
  */
+
 function nextReviewImage() {
 
 
