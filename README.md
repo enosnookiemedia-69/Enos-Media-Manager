@@ -1,18 +1,48 @@
 # 📸 Enos Media Manager
 
-A Google Apps Script application for managing the complete Enos Nookie media archive and supporting the production of the **Enos Bookie** coffee table book.
+A Google Apps Script application for managing the complete **Enos Nookie** media archive and supporting the production of the **Enos Bookie** coffee table book.
 
 ---
 
 # Overview
 
-The Enos Media Manager is a custom-built media management system developed specifically for the Enos Nookie project.
+The **Enos Media Manager** is a custom-built media management and editorial workflow system developed specifically for the Enos Nookie theme camp project.
 
-The application synchronises photographs stored in Google Drive with a structured Google Sheets database, allowing thousands of images to be organised, reviewed, categorised and selected for publication.
+The application manages the complete lifecycle of photographic assets:
 
-Rather than acting as a traditional Digital Asset Management (DAM) system, the project focuses on the editorial workflow required to curate imagery for printed books and future digital archives.
+```
+Google Drive
+      |
+      ↓
+Media Synchronisation
+      |
+      ↓
+Metadata Extraction
+      |
+      ↓
+Media Database
+      |
+      ↓
+Editorial Review
+      |
+      ↓
+Book Selection
+      |
+      ↓
+Enos Bookie Production
+```
 
-The project is written entirely in **Google Apps Script** and integrates closely with Google Drive and Google Sheets.
+The system synchronises photographs stored in Google Drive with a structured Google Sheets database, allowing thousands of images to be automatically catalogued, reviewed, categorised and selected for publication.
+
+Unlike a traditional Digital Asset Management (DAM) system, the Enos Media Manager is designed around the creative and editorial requirements of producing a physical coffee table book.
+
+The application is written entirely in **Google Apps Script** and integrates with:
+
+* Google Drive
+* Google Sheets
+* Google Drive Advanced Services
+* clasp
+* Git/GitHub
 
 ---
 
@@ -20,75 +50,127 @@ The project is written entirely in **Google Apps Script** and integrates closely
 
 The application aims to:
 
-* Synchronise media from Google Drive
-* Automatically catalogue photographs
-* Extract metadata from images and folders
-* Preserve manual editorial information
-* Assist with image review and selection
-* Produce curated image lists for book production
-* Reduce repetitive administrative work
+* Create a searchable archive of Enos Nookie photography
+* Automatically catalogue images from Google Drive
+* Extract technical metadata from images and folders
+* Preserve creative editorial decisions
+* Provide a structured image review workflow
+* Assist with book curation and page planning
+* Reduce repetitive manual administration
+* Maintain a long-term archive for future Enos projects
 
-Ultimately the goal is to make managing several thousand photographs as simple and efficient as possible.
+The ultimate goal is to make managing several thousand photographs simple while preserving the creative story behind the images.
 
 ---
 
 # Current Features
 
-## Media Synchronisation
+## 📂 Media Synchronisation
+
+The synchronisation system connects Google Drive folders with the Media Database.
+
+Features:
 
 * Google Drive integration
 * Recursive folder scanning
-* Automatic detection of new images
-* Updates existing records
-* Preserves manual spreadsheet data
-* Logging and progress reporting
+* Automatic image detection
+* New image discovery
+* Existing record updates
+* File ID matching
+* Manual data preservation
+* Sync logging
+* Progress reporting
 
 ---
 
-## Metadata Management
+## 🖼 Metadata Management
 
-Automatically records information including:
+The metadata system automatically records and maintains technical information.
+
+Captured information includes:
 
 * File name
 * Folder path
 * Google Drive File ID
 * File size
 * File extension
+* MIME type
 * Photographer
 * Camera model
+* EXIF camera information
 * Year
 * Image dimensions
 * Orientation
+* Date taken
 * Creation dates
-* Drive links
+* Drive URLs
 
 ---
 
-## Editorial Workflow
+## 🗃 Media Database
 
-Supports the complete editorial process for the Enos Bookie project.
+The Media Database acts as the central source of truth for all images.
 
-Including:
+The database separates:
 
-* Categories
-* Grades
+### Automated Data
+
+Generated from Google Drive and image metadata.
+
+Examples:
+
+* File information
+* Camera information
+* Dimensions
+* Dates
+* Technical metadata
+
+### Editorial Data
+
+Created through the review process.
+
+Examples:
+
+* Category
+* Grade
 * Story Value
-* Hero Images
-* Book Candidates
-* Final Book Selection
+* Hero Image selection
+* Book Candidate status
+* Final Book selection
 * Captions
 * Page planning
 * Notes
 
 ---
 
-## Review System
+# Editorial Workflow
 
-The review system provides an editorial workspace for assessing images before book selection.
+The editorial workflow supports the complete Enos Bookie image selection process.
+
+Current editorial tools include:
+
+* Image categories
+* Quality grading
+* Story value scoring
+* Hero image selection
+* Book candidate selection
+* Final image selection
+* Caption management
+* Spread planning
+* Page allocation
+* Editorial notes
+
+The system is designed to separate objective image metadata from subjective creative decisions.
+
+---
+
+# Review System
+
+The Review system provides an interactive workspace for evaluating images directly from the Media Database.
 
 Current capabilities:
 
-* Image loading from Media Database
+* Image loading
 * Reviewer position tracking
 * Next/previous image navigation
 * Creative review fields
@@ -97,21 +179,27 @@ Current capabilities:
 * Book candidate selection
 * Final book selection
 
-The review workflow separates technical metadata from creative decisions, allowing automated information and editorial judgement to coexist.
+Future improvements will include:
+
+* Improved scoring automation
+* Selection recommendations
+* Dashboard analytics
+* Faster bulk review workflows
 
 ---
 
-# Technology
+# Dashboard
 
-The project uses:
+The Dashboard provides a central overview of project progress.
 
-* Google Apps Script
-* Google Drive
-* Google Sheets
-* Google Drive Advanced Service
-* clasp
-* Git
-* GitHub
+Current foundation includes:
+
+* Application information
+* Image statistics
+* Review progress
+* Book progress tracking
+
+Future development will expand this into a full editorial control centre.
 
 ---
 
@@ -119,41 +207,47 @@ The project uses:
 
 The application is divided into focused modules.
 
-| File               | Responsibility                          |
-| ------------------ | --------------------------------------- |
-| Menu.js            | User menus and application entry points |
-| Config.js          | Global configuration                    |
-| Sync.js            | Synchronisation workflow                |
-| Scanner.js         | Google Drive folder scanning            |
-| Metadata.js        | Metadata extraction and caching         |
-| Database.js        | Spreadsheet database operations         |
-| MediaObject.js     | Standard media object model             |
-| BookList.js        | Book image management                   |
-| Review.js          | Review engine                           |
-| ReviewUI.js        | Review interface                        |
-| ReviewHTML.html    | Review dialog                           |
-| Sidebar.js         | Sidebar interface                       |
-| Utilities.js       | Shared helper functions                 |
-| Logging.js         | Logging system                          |
-| SelectionEngine.js | Editorial scoring and selection logic   |
-| Thumbnails.js      | Thumbnail generation                    |
-| Test.js            | Development testing                     |
+| File                     | Responsibility                    |
+| ------------------------ | --------------------------------- |
+| 00_Project Notes.js      | Development notes and milestones  |
+| Menu.js                  | Custom spreadsheet menu           |
+| Config.js                | Central application configuration |
+| Sync.js                  | Google Drive synchronisation      |
+| Scanner.js               | Recursive folder scanning         |
+| Metadata.js              | Metadata extraction and caching   |
+| Database.js              | Media database operations         |
+| MediaObject.js           | Standard media object structure   |
+| Thumbnails.js            | Thumbnail generation              |
+| BookList.js              | Book image management             |
+| Review.js                | Review workflow engine            |
+| ReviewerUI.js            | Review interface controls         |
+| ReviewUI.js              | Review interface helpers          |
+| ReviewHTML.html          | Review interface                  |
+| Dashboard.js             | Dashboard controller              |
+| DashboardHTML.html       | Dashboard interface               |
+| DashboardStylesHTML.html | Dashboard styling                 |
+| StylesHTML.html          | Shared interface styling          |
+| SelectionEngine.js       | Future editorial scoring engine   |
+| Logging.js               | Application logging               |
+| Utilities.js             | Shared helper functions           |
+| Test.js                  | Development testing               |
 
 ---
 
 # Development Philosophy
 
-The project follows several design principles.
+The project follows several principles:
 
-* Small, focused modules
-* Minimal code duplication
+* Small focused modules
+* Minimal duplication
 * Centralised configuration
-* Well documented source code
+* Clear separation of responsibilities
 * Consistent object structures
-* Separation between automated and manual data
+* Automated data separated from creative decisions
+* Documentation alongside development
 * Maintainability before complexity
 
-Where practical, configuration values are stored centrally rather than hard-coded throughout the project.
+Configuration values are stored centrally wherever possible rather than being hard-coded throughout the application.
 
 ---
 
@@ -167,7 +261,18 @@ Status:
 
 **Active Development**
 
-The application is under continuous development with new features being added as the editorial workflow evolves.
+Version 2.0 represents the completion of the core application architecture:
+
+Completed:
+
+✅ Drive synchronisation
+✅ Recursive scanning
+✅ Metadata pipeline
+✅ Media database
+✅ Thumbnail generation
+✅ Review workflow
+✅ Book workflow foundation
+✅ Dashboard foundation
 
 ---
 
@@ -175,52 +280,46 @@ The application is under continuous development with new features being added as
 
 ## Source of Truth
 
-The **Google Apps Script project** is the master copy of the application.
+The Google Apps Script project is the master copy of the application.
 
 GitHub is used for:
 
 * Version history
-* Daily backups
-* Source code sharing
+* Backup
 * Documentation
+* Code review
+* Development history
 
-The GitHub repository is **not** considered the primary development environment.
+The repository mirrors the Apps Script project through `clasp`.
 
 ---
 
 # Developer Workflow
 
-Development is currently performed directly in the Google Apps Script editor.
+Current workflow:
 
-Daily workflow:
-
-1. Develop in Apps Script.
+1. Develop in Google Apps Script.
 2. Save and test changes.
-3. Pull the latest project locally.
+3. Pull source locally:
 
 ```bash
 clasp pull
 ```
 
-4. Review changes.
+4. Review changes:
 
 ```bash
 git status
 ```
 
-5. Stage modified files.
+5. Commit:
 
 ```bash
 git add .
+git commit -m "Description of changes"
 ```
 
-6. Commit changes.
-
-```bash
-git commit -m "Meaningful description"
-```
-
-7. Push to GitHub.
+6. Push:
 
 ```bash
 git push
@@ -228,41 +327,26 @@ git push
 
 ---
 
-# Repository Purpose
-
-This repository exists to provide:
-
-* Version control
-* Daily project backups
-* Code review
-* Historical development record
-* Project documentation
-
-The repository mirrors the Apps Script project and should remain synchronised with it.
-
----
-
 # Future Development
 
 Planned improvements include:
 
-* Faster synchronisation
-* Improved metadata extraction
-* Enhanced review workflow
-* Batch editing tools
-* Better thumbnail management
-* Dashboard and statistics
-* Advanced search and filtering
+* Complete editorial scoring engine
+* Dashboard statistics
+* Advanced image filtering
+* Bulk editing tools
 * Duplicate detection
-* Book production tools
-* Export utilities
+* Improved search
+* Automated book selection assistance
+* Export tools
+* Production workflow tools
 * Performance optimisation
 
 ---
 
 # Acknowledgements
 
-Developed for the **Enos Nookie** project to support the creation and long-term management of the Enos Bookie media archive.
+Developed for the **Enos Nookie** theme camp project to support the creation, preservation and storytelling of the Enos Bookie coffee table book.
 
 ---
 
