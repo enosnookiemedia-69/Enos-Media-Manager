@@ -30,7 +30,7 @@ const APP = {
 
   CREATED: "2026-07-08",
 
-  LAST_UPDATED: "2026-07-09",
+  LAST_UPDATED: "2026-08-12",
 
   TIMEZONE: "Africa/Johannesburg"
 
@@ -81,114 +81,76 @@ CONFIG.SHEETS = {
 
 const COL = {
 
-
   // ========================================================
-  // FILE & DRIVE METADATA
-  // Columns A - G
+  // CORE FILE INFORMATION
   // ========================================================
 
   THUMBNAIL: 1,
-
-  FILE_NAME: 2,
-
+  NAME: 2,
   FOLDER_PATH: 3,
-
   FILE_ID: 4,
-
-  FILE_SIZE: 5,
-
-  DATE_CREATED: 6,
-
+  SIZE: 5,
+  CREATED_TIME: 6,
   URL: 7,
-
 
 
   // ========================================================
   // IMAGE METADATA
-  // Columns H - Q
   // ========================================================
 
   YEAR: 8,
-
   PHOTOGRAPHER: 9,
-
   CAMERA_MODEL: 10,
-
   EXIF_CAMERA: 11,
-
   FILE_EXTENSION: 12,
-
   MIME_TYPE: 13,
-
   WIDTH: 14,
-
   HEIGHT: 15,
-
   ORIENTATION: 16,
-
-  DATE_TAKEN: 17,
-
+  ASPECT_RATIO: 17,
+  MEGAPIXELS: 18,
+  DATE_TAKEN: 19,
 
 
   // ========================================================
   // PROCESSING STATUS
-  // Columns R - S
   // ========================================================
 
-  METADATA_UPDATED: 18,
-
-  THUMBNAIL_STATUS: 19,
-
+  METADATA_UPDATED: 20,
+  THUMBNAIL_STATUS: 21,
 
 
   // ========================================================
   // EDITORIAL REVIEW
-  // Columns T - AB
   // ========================================================
 
-  LAYOUT_SUITABILITY: 20,
-
-  PRINT_SUITABILITY: 21,
-
-  CATEGORY: 22,
-
-  GRADE: 23,
-
-  STORY_VALUE: 24,
-
-  HERO_IMAGE: 25,
-
-  BOOK_CANDIDATE: 26,
-
-  FINAL_BOOK: 27,
-
-  SELECTION_STAGE: 28,
-
+  LAYOUT_SUITABILITY: 22,
+  PRINT_SUITABILITY: 23,
+  CATEGORY: 24,
+  GRADE: 25,
+  STORY_VALUE: 26,
+  HERO_IMAGE: 27,
+  BOOK_CANDIDATE: 28,
+  FINAL_BOOK: 29,
+  SELECTION_STAGE: 30,
 
 
   // ========================================================
   // BOOK PRODUCTION
-  // Columns AC - AF
   // ========================================================
 
-  CAPTION: 29,
-
-  SPREAD: 30,
-
-  PAGE: 31,
-
-  NOTES: 32,
-
+  CAPTION: 31,
+  SPREAD: 32,
+  PAGE: 33,
+  NOTES: 34,
 
 
   // ========================================================
   // REVIEW TRACKING
-  // Columns AG - AH
   // ========================================================
 
-  REVIEW_DATE: 33,
-
-  REVIEW_STATUS: 34
+  REVIEW_DATE: 35,
+  REVIEW_STATUS: 36
 
 };
 
@@ -707,5 +669,384 @@ function setSetting(settingName, value) {
   sheet.appendRow([settingName, value]);
 
   clearSettingsCache();
+
+}
+
+
+
+
+// ==========================================================
+// TEST FUNCTIONS
+// ==========================================================
+
+/**
+ * Tests the central application configuration.
+ *
+ * Verifies:
+ * • Application information
+ * • Spreadsheet access
+ * • Configured sheet names
+ * • Required sheets exist
+ */
+function testConfig() {
+
+  Logger.log("==========================================");
+  Logger.log("CONFIGURATION TEST");
+  Logger.log("==========================================");
+
+  // --------------------------------------------------------
+  // Application information
+  // --------------------------------------------------------
+
+  Logger.log(
+    "App Name: " +
+    APP.NAME
+  );
+
+  Logger.log(
+    "Version: " +
+    APP.VERSION
+  );
+
+  Logger.log(
+    "Author: " +
+    APP.AUTHOR
+  );
+
+  Logger.log(
+    "Created: " +
+    APP.CREATED
+  );
+
+  Logger.log(
+    "Last Updated: " +
+    APP.LAST_UPDATED
+  );
+
+  Logger.log(
+    "Timezone: " +
+    APP.TIMEZONE
+  );
+
+  // --------------------------------------------------------
+  // Sheet configuration
+  // --------------------------------------------------------
+
+  Logger.log(
+    "Media Sheet: " +
+    CONFIG.SHEETS.MEDIA
+  );
+
+  Logger.log(
+    "Book Sheet: " +
+    CONFIG.SHEETS.BOOK
+  );
+
+  Logger.log(
+    "Log Sheet: " +
+    CONFIG.SHEETS.LOG
+  );
+
+  Logger.log(
+    "Settings Sheet: " +
+    CONFIG.SHEETS.SETTINGS
+  );
+
+  Logger.log(
+    "Dashboard Sheet: " +
+    CONFIG.SHEETS.DASHBOARD
+  );
+
+  // --------------------------------------------------------
+  // Spreadsheet access
+  // --------------------------------------------------------
+
+  const spreadsheet =
+    SpreadsheetApp.getActiveSpreadsheet();
+
+  if (!spreadsheet) {
+
+    throw new Error(
+      "Unable to access active spreadsheet."
+    );
+
+  }
+
+  Logger.log(
+    "Spreadsheet: " +
+    spreadsheet.getName()
+  );
+
+  // --------------------------------------------------------
+  // Sheet existence
+  // --------------------------------------------------------
+
+  const mediaSheet =
+    spreadsheet.getSheetByName(
+      CONFIG.SHEETS.MEDIA
+    );
+
+  const bookSheet =
+    spreadsheet.getSheetByName(
+      CONFIG.SHEETS.BOOK
+    );
+
+  const logSheet =
+    spreadsheet.getSheetByName(
+      CONFIG.SHEETS.LOG
+    );
+
+  const settingsSheet =
+    spreadsheet.getSheetByName(
+      CONFIG.SHEETS.SETTINGS
+    );
+
+  const dashboardSheet =
+    spreadsheet.getSheetByName(
+      CONFIG.SHEETS.DASHBOARD
+    );
+
+  Logger.log(
+    "Media Sheet Found: " +
+    !!mediaSheet
+  );
+
+  Logger.log(
+    "Book Sheet Found: " +
+    !!bookSheet
+  );
+
+  Logger.log(
+    "Log Sheet Found: " +
+    !!logSheet
+  );
+
+  Logger.log(
+    "Settings Sheet Found: " +
+    !!settingsSheet
+  );
+
+  Logger.log(
+    "Dashboard Sheet Found: " +
+    !!dashboardSheet
+  );
+
+  // --------------------------------------------------------
+  // Result
+  // --------------------------------------------------------
+
+  if (
+    !mediaSheet ||
+    !bookSheet ||
+    !logSheet ||
+    !settingsSheet ||
+    !dashboardSheet
+  ) {
+
+    throw new Error(
+      "One or more configured sheets could not be found."
+    );
+
+  }
+
+  Logger.log("------------------------------------------");
+  Logger.log("CONFIGURATION TEST PASSED");
+  Logger.log("==========================================");
+
+}
+
+
+
+// ==========================================================
+// MEDIA DATABASE COLUMN MAP TEST
+// ==========================================================
+
+/**
+ * Validates the Config column map against
+ * the actual Media Database headers.
+ *
+ * This test is read-only and does not modify
+ * the spreadsheet.
+ */
+function testColumnMap() {
+
+  const spreadsheet =
+    SpreadsheetApp.getActiveSpreadsheet();
+
+  if (!spreadsheet) {
+
+    throw new Error(
+      "Unable to access active spreadsheet."
+    );
+
+  }
+
+  const sheet =
+    spreadsheet.getSheetByName(
+      CONFIG.SHEETS.MEDIA
+    );
+
+  if (!sheet) {
+
+    throw new Error(
+      "Media Database sheet not found."
+    );
+
+  }
+
+  const headers =
+    sheet
+      .getRange(
+        1,
+        1,
+        1,
+        sheet.getLastColumn()
+      )
+      .getValues()[0];
+
+  Logger.log("==========================================");
+  Logger.log("MEDIA DATABASE COLUMN MAP TEST");
+  Logger.log("==========================================");
+
+  Logger.log(
+    "Sheet columns: " +
+    headers.length
+  );
+
+  // --------------------------------------------------------
+  // Expected headers
+  // --------------------------------------------------------
+
+  const expected = {
+
+    THUMBNAIL: "Thumbnail",
+    NAME: "File Name",
+    FOLDER_PATH: "Folder Path",
+    FILE_ID: "File ID",
+    SIZE: "File Size (KB)",
+    CREATED_TIME: "Date Created",
+    URL: "URL",
+
+    YEAR: "Year",
+    PHOTOGRAPHER: "Photographer",
+    CAMERA_MODEL: "Camera Model",
+    EXIF_CAMERA: "EXIF Camera",
+    FILE_EXTENSION: "File Extension",
+    MIME_TYPE: "Mime Type",
+    WIDTH: "Width (px)",
+    HEIGHT: "Height (px)",
+    ORIENTATION: "Orientation",
+    ASPECT_RATIO: "Aspect Ratio",
+    MEGAPIXELS: "Megapixels",
+    DATE_TAKEN: "Date Taken",
+
+    METADATA_UPDATED: "Metadata Updated",
+    THUMBNAIL_STATUS: "Thumbnail Status",
+
+    LAYOUT_SUITABILITY: "Layout Suitability",
+    PRINT_SUITABILITY: "Print Suitability",
+    CATEGORY: "Category",
+    GRADE: "Grade",
+    STORY_VALUE: "Story Value",
+    HERO_IMAGE: "Hero Image",
+    BOOK_CANDIDATE: "Book Candidate",
+    FINAL_BOOK: "Final Book",
+    SELECTION_STAGE: "Selection Stage",
+
+    CAPTION: "Caption",
+    SPREAD: "Spread",
+    PAGE: "Page",
+    NOTES: "Notes",
+
+    REVIEW_DATE: "Review Date",
+    REVIEW_STATUS: "Review Status"
+
+  };
+
+  // --------------------------------------------------------
+  // Validate column count
+  // --------------------------------------------------------
+
+  if (headers.length !== 36) {
+
+    throw new Error(
+      "Expected 36 Media Database columns but found " +
+      headers.length +
+      "."
+    );
+
+  }
+
+  // --------------------------------------------------------
+  // Compare Config against spreadsheet
+  // --------------------------------------------------------
+
+  let errors = 0;
+
+  Object.keys(expected).forEach(function(key) {
+
+    const column =
+      COL[key];
+
+    const expectedHeader =
+      expected[key];
+
+    const actualHeader =
+      headers[column - 1];
+
+    if (actualHeader !== expectedHeader) {
+
+      errors++;
+
+      Logger.log(
+        "ERROR: " +
+        key +
+        " → Column " +
+        column +
+        " → Expected \"" +
+        expectedHeader +
+        "\" but found \"" +
+        actualHeader +
+        "\""
+      );
+
+    } else {
+
+      Logger.log(
+        "OK: " +
+        key +
+        " → Column " +
+        column +
+        " → " +
+        actualHeader
+      );
+
+    }
+
+  });
+
+  // --------------------------------------------------------
+  // Result
+  // --------------------------------------------------------
+
+  Logger.log("------------------------------------------");
+
+  if (errors > 0) {
+
+    throw new Error(
+      "Column map validation failed with " +
+      errors +
+      " error(s)."
+    );
+
+  }
+
+  Logger.log(
+    "RESULT: Column map is correct."
+  );
+
+  Logger.log("==========================================");
+  Logger.log("COLUMN MAP TEST PASSED");
+  Logger.log("==========================================");
 
 }

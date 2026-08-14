@@ -448,22 +448,41 @@ function updateMedia(fileId, record) {
 
 
 /**
- * Deletes all media records.
+ * Clears every imported media record.
  *
- * Leaves the header row intact.
+ * Preserves:
+ * • Header row
+ * • Sheet structure
+ * • Formatting
+ * • Frozen rows
+ *
+ * All data below the header is removed.
  */
 function clearMediaDatabase() {
 
-  const sheet = getMediaSheet();
+  const sheet =
+    getMediaSheet();
 
-  if (sheet.getLastRow() <= 1) {
+  const lastRow =
+    sheet.getLastRow();
+
+  const lastColumn =
+    sheet.getLastColumn();
+
+  if (lastRow <= 1) {
+
     return;
+
   }
 
-  sheet.deleteRows(
-    2,
-    sheet.getLastRow() - 1
-  );
+  sheet
+    .getRange(
+      2,
+      1,
+      lastRow - 1,
+      lastColumn
+    )
+    .clearContent();
 
 }
 
@@ -539,5 +558,198 @@ function clearMediaDatabaseMenu() {
   clearMediaDatabase();
 
   showSuccess("Media Database cleared.");
+
+}
+
+
+
+
+// ==========================================================
+// TEST FUNCTIONS
+// ==========================================================
+
+function testDatabaseLookup() {
+
+  const media = getAllMedia();
+
+  Logger.log("==========================================");
+  Logger.log("DATABASE TEST");
+  Logger.log("==========================================");
+
+  Logger.log(
+    "Total media records: " +
+    getMediaCount()
+  );
+
+  if (media.length <= 1) {
+
+    Logger.log("No media records found.");
+    return;
+
+  }
+
+  const fileId =
+    media[1][COL.FILE_ID - 1];
+
+  Logger.log(
+    "Testing File ID: " +
+    fileId
+  );
+
+  const row =
+    findRowByFileId(fileId);
+
+  Logger.log(
+    "Found spreadsheet row: " +
+    row
+  );
+
+  Logger.log(
+    "Media exists: " +
+    mediaExists(fileId)
+  );
+
+  const record =
+    getMediaRecord(fileId);
+
+  Logger.log(
+    "Record found: " +
+    (record !== null)
+  );
+
+  Logger.log("==========================================");
+  Logger.log("DATABASE TEST COMPLETE");
+  Logger.log("==========================================");
+
+}
+
+// ==========================================================
+// ASPECT RATIO TESTS
+// ==========================================================
+
+function testAspectRatioStorage() {
+
+  const fileId =
+    "1B0996WdmylKJziJo1Y4D1FDAJJNkrsM-";
+
+  const row =
+    findRowByFileId(fileId);
+
+  if (row === -1) {
+    throw new Error(
+      "Test file not found in Media Database."
+    );
+  }
+
+  const sheet =
+    getMediaSheet();
+
+  // Aspect Ratio is column 17
+  const aspectRatioColumn = 17;
+
+  const range =
+    sheet.getRange(
+      row,
+      aspectRatioColumn
+    );
+
+  Logger.log("================================");
+  Logger.log("ASPECT RATIO STORAGE TEST");
+  Logger.log("================================");
+
+  Logger.log(
+    "Spreadsheet row: " +
+    row
+  );
+
+  Logger.log(
+    "Column: " +
+    aspectRatioColumn
+  );
+
+  Logger.log(
+    "Displayed value: " +
+    range.getDisplayValue()
+  );
+
+  Logger.log(
+    "Raw value: " +
+    range.getValue()
+  );
+
+  Logger.log(
+    "Value type: " +
+    typeof range.getValue()
+  );
+
+  Logger.log(
+    "Number format: " +
+    range.getNumberFormat()
+  );
+
+  Logger.log("================================");
+
+}
+
+// ==========================================================
+// ASPECT RATIO WRITE TEST
+// ==========================================================
+
+function testAspectRatioWrite() {
+
+  const fileId =
+    "1B0996WdmylKJziJo1Y4D1FDAJJNkrsM-";
+
+  const row =
+    findRowByFileId(fileId);
+
+  if (row === -1) {
+    throw new Error(
+      "Test file not found in Media Database."
+    );
+  }
+
+  const sheet =
+    getMediaSheet();
+
+  const aspectRatioColumn = 17;
+
+  const range =
+    sheet.getRange(
+      row,
+      aspectRatioColumn
+    );
+
+  Logger.log("================================");
+  Logger.log("ASPECT RATIO WRITE TEST");
+  Logger.log("================================");
+
+  Logger.log(
+    "Writing: 2048:1363"
+  );
+
+  range.setValue("2048:1363");
+
+  Logger.log(
+    "Displayed value after write: " +
+    range.getDisplayValue()
+  );
+
+  Logger.log(
+    "Raw value after write: " +
+    range.getValue()
+  );
+
+  Logger.log(
+    "Value type: " +
+    typeof range.getValue()
+  );
+
+  Logger.log(
+    "Number format: " +
+    range.getNumberFormat()
+  );
+
+  Logger.log("================================");
 
 }

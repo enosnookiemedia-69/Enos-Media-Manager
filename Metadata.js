@@ -450,6 +450,7 @@ function getFileExtension(file) {
  *
  * @returns {Object}
  */
+
 function emptyImageMetadata() {
 
   return {
@@ -466,6 +467,10 @@ function emptyImageMetadata() {
 
     orientation: "",
 
+    aspectRatio: "",
+
+    megapixels: "",
+
     dateTaken: "",
 
     exifCamera: ""
@@ -473,7 +478,6 @@ function emptyImageMetadata() {
   };
 
 }
-
 
 /**
  * Reads all available image metadata
@@ -505,6 +509,20 @@ function getImageMetadata(fileId) {
     const image =
       file.imageMediaMetadata || {};
 
+    // ----------------------------------------------------
+    // Image dimensions
+    // ----------------------------------------------------
+
+    const width =
+      Number(image.width) || 0;
+
+    const height =
+      Number(image.height) || 0;
+
+    // ----------------------------------------------------
+    // Build metadata object
+    // ----------------------------------------------------
+
     const metadata = {
 
       mimeType:
@@ -517,15 +535,27 @@ function getImageMetadata(fileId) {
         image.cameraModel || "",
 
       width:
-        image.width || "",
+        width,
 
       height:
-        image.height || "",
+        height,
 
       orientation:
         getOrientation(
-          image.width,
-          image.height
+          width,
+          height
+        ),
+
+      aspectRatio:
+        getAspectRatio(
+          width,
+          height
+        ),
+
+      megapixels:
+        getMegapixels(
+          width,
+          height
         ),
 
       dateTaken:
@@ -541,9 +571,9 @@ function getImageMetadata(fileId) {
 
     };
 
-    // ------------------------------------------------------
+    // ----------------------------------------------------
     // Save to cache
-    // ------------------------------------------------------
+    // ----------------------------------------------------
 
     METADATA_CACHE.IMAGE_METADATA[fileId] =
       metadata;
@@ -562,15 +592,18 @@ function getImageMetadata(fileId) {
     const metadata =
       emptyImageMetadata();
 
+    // ----------------------------------------------------
     // Cache failed lookup
+    // ----------------------------------------------------
+
     METADATA_CACHE.IMAGE_METADATA[fileId] =
       metadata;
 
     return metadata;
 
   }
-}
 
+}
 
 /**
  * Returns image orientation.
@@ -582,27 +615,112 @@ function getImageMetadata(fileId) {
 function getOrientation(width, height) {
 
   if (!width || !height) {
-
     return "";
-
   }
 
   if (width > height) {
-
     return "Landscape";
-
   }
 
   if (height > width) {
-
     return "Portrait";
-
   }
 
   return "Square";
 
 }
 
+
+// ==========================================================
+// IMAGE DIMENSION CALCULATIONS
+// ==========================================================
+
+/**
+ * Returns a simplified aspect ratio for an image.
+ *
+ * Examples:
+ * 4032 × 3024 → 4:3
+ * 2048 × 1536 → 4:3
+ * 4032 × 2268 → 16:9
+ * 2048 × 2048 → 1:1
+ *
+ * @param {number} width
+ * @param {number} height
+ * @returns {string}
+ */
+function getAspectRatio(width, height) {
+
+  if (!width || !height) {
+    return "";
+  }
+
+  const divisor =
+    gcd(
+      Number(width),
+      Number(height)
+    );
+
+  return (
+    Number(width) / divisor
+  ) + ":" +
+  (
+    Number(height) / divisor
+  );
+
+}
+
+
+/**
+ * Returns image resolution in megapixels.
+ *
+ * @param {number} width
+ * @param {number} height
+ * @returns {number|string}
+ */
+function getMegapixels(width, height) {
+
+  if (!width || !height) {
+    return "";
+  }
+
+  return Number(
+    (
+      Number(width) *
+      Number(height)
+    ) / 1000000
+  ).toFixed(1);
+
+}
+
+
+/**
+ * Calculates the greatest common divisor
+ * of two numbers.
+ *
+ * Used to simplify image aspect ratios.
+ *
+ * @param {number} a
+ * @param {number} b
+ * @returns {number}
+ */
+
+function gcd(a, b) {
+
+  a = Math.abs(a);
+  b = Math.abs(b);
+
+  while (b !== 0) {
+
+    const remainder = a % b;
+
+    a = b;
+    b = remainder;
+
+  }
+
+  return a;
+
+}
 
 // ==========================================================
 // METADATA WRITERS
@@ -617,6 +735,7 @@ function getOrientation(width, height) {
  * @param {Array} row
  * @returns {Array}
  */
+
 function updateMetadata(row) {
 
   const fileId = row[COL.FILE_ID - 1];
@@ -682,31 +801,37 @@ function updateMetadata(row) {
     row[COL.URL - 1] =
       getFileUrl(file);
 
-    // ------------------------------------------------------
-    // Image Metadata
-    // ------------------------------------------------------
+// ------------------------------------------------------
+// Image Metadata
+// ------------------------------------------------------
 
-    row[COL.MIME_TYPE - 1] =
-      image.mimeType;
+row[COL.MIME_TYPE - 1] =
+  image.mimeType;
 
-    row[COL.EXIF_CAMERA - 1] =
-      image.exifCamera;
+row[COL.EXIF_CAMERA - 1] =
+  image.exifCamera;
 
-    row[COL.WIDTH - 1] =
-      image.width;
+row[COL.WIDTH - 1] =
+  image.width;
 
-    row[COL.HEIGHT - 1] =
-      image.height;
+row[COL.HEIGHT - 1] =
+  image.height;
 
-    row[COL.ORIENTATION - 1] =
-      image.orientation;
+row[COL.ORIENTATION - 1] =
+  image.orientation;
 
-    row[COL.DATE_TAKEN - 1] =
-      image.dateTaken;
+row[COL.ASPECT_RATIO - 1] =
+  image.aspectRatio;
 
-    // ------------------------------------------------------
-    // Thumbnail
-    // ------------------------------------------------------
+row[COL.MEGAPIXELS - 1] =
+  image.megapixels;
+
+row[COL.DATE_TAKEN - 1] =
+  image.dateTaken;
+
+// ------------------------------------------------------
+// Thumbnail
+// ------------------------------------------------------
 
     row[COL.THUMBNAIL - 1] =
       getThumbnailFormula(fileId);
@@ -814,14 +939,14 @@ function populateMediaMetadata(media) {
   media.orientation =
     image.orientation;
 
+media.aspectRatio =
+    image.aspectRatio;
+
+  media.megapixels =
+    image.megapixels;
+
   media.dateTaken =
     image.dateTaken;
-
-  // ------------------------------------------------------
-  // Thumbnail
-  // ------------------------------------------------------
-
-  generateThumbnail(media);
 
   // ------------------------------------------------------
   // Status
@@ -831,11 +956,7 @@ function populateMediaMetadata(media) {
     new Date();
 
   return media;
-
 }
-// ==========================================================
-// TEST FUNCTIONS
-// ==========================================================
 
 /**
  * Tests image metadata extraction

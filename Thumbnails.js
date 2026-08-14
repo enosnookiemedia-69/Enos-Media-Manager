@@ -234,10 +234,16 @@ function refreshThumbnails() {
 
   info("Refreshing thumbnails...");
 
+  // --------------------------------------------------------
   // Start with a clean cache.
+  // --------------------------------------------------------
+
   clearThumbnailCache();
 
+  // --------------------------------------------------------
   // Respect the application setting.
+  // --------------------------------------------------------
+
   if (!getSetting("Create Thumbnails")) {
 
     showError(
@@ -248,37 +254,63 @@ function refreshThumbnails() {
 
   }
 
-  const sheet = getMediaSheet();
+  // --------------------------------------------------------
+  // Get Media Database.
+  // --------------------------------------------------------
 
-  const lastRow = sheet.getLastRow();
+  const sheet =
+    getMediaSheet();
+
+  const lastRow =
+    sheet.getLastRow();
 
   if (lastRow < 2) {
 
-    showError("No media records found.");
+    showError(
+      "No media records found."
+    );
 
     return;
 
   }
 
-  const ids = sheet
-    .getRange(
-      2,
-      COL.FILE_ID,
-      lastRow - 1,
-      1
-    )
-    .getValues();
+  // --------------------------------------------------------
+  // Read File IDs.
+  // --------------------------------------------------------
 
-  const thumbnails = [];
+  const ids =
+    sheet
+      .getRange(
+        2,
+        COL.FILE_ID,
+        lastRow - 1,
+        1
+      )
+      .getValues();
 
-  for (let i = 0; i < ids.length; i++) {
+  const thumbnailValues = [];
+  const statusValues = [];
 
-    const fileId = ids[i][0];
+  // --------------------------------------------------------
+  // Build thumbnail data.
+  // --------------------------------------------------------
+
+  for (
+    let i = 0;
+    i < ids.length;
+    i++
+  ) {
+
+    const fileId =
+      ids[i][0];
 
     if (!fileId) {
 
-      thumbnails.push([
-        "",
+      thumbnailValues.push([
+        ""
+      ]);
+
+      statusValues.push([
         "Missing File"
       ]);
 
@@ -286,25 +318,24 @@ function refreshThumbnails() {
 
     }
 
-    thumbnails.push([
-
-      getThumbnailFormula(fileId),
-
-      "Generated"
-
+    thumbnailValues.push([
+      getThumbnailFormula(fileId)
     ]);
 
+    statusValues.push([
+      "Generated"
+    ]);
+
+    // ------------------------------------------------------
     // Progress logging for large libraries.
+    // ------------------------------------------------------
+
     if ((i + 1) % 500 === 0) {
 
       info(
-
         "Processed " +
-
         (i + 1) +
-
         " thumbnails..."
-
       );
 
     }
@@ -319,11 +350,11 @@ function refreshThumbnails() {
     .getRange(
       2,
       COL.THUMBNAIL,
-      thumbnails.length,
+      thumbnailValues.length,
       1
     )
     .setValues(
-      thumbnails.map(row => [row[0]])
+      thumbnailValues
     );
 
   // --------------------------------------------------------
@@ -334,23 +365,23 @@ function refreshThumbnails() {
     .getRange(
       2,
       COL.THUMBNAIL_STATUS,
-      thumbnails.length,
+      statusValues.length,
       1
     )
     .setValues(
-      thumbnails.map(row => [row[1]])
+      statusValues
     );
 
+  // --------------------------------------------------------
+  // Complete.
+  // --------------------------------------------------------
+
   showSuccess(
-
-    thumbnails.length +
-
+    thumbnailValues.length +
     " thumbnails refreshed."
-
   );
 
 }
-
 
 // ==========================================================
 // THUMBNAIL VALIDATION

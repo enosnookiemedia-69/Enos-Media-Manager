@@ -255,3 +255,202 @@ function getRootFolder() {
 
 }
 
+
+
+
+/**
+ * Tests the complete sync pipeline on ONE file.
+ *
+ * This test is READ-ONLY.
+ * It does NOT write anything to Media Database.
+ */
+function testSingleSyncPipeline() {
+
+  info("================================");
+  info("TEST: Single Sync Pipeline");
+  info("================================");
+
+  const folderId =
+    getSetting("Media Root Folder ID");
+
+  if (!folderId) {
+    warning("Media Root Folder ID is missing.");
+    return;
+  }
+
+  info("Root folder ID: " + folderId);
+
+  // ------------------------------------------------------
+  // Scan Drive
+  // ------------------------------------------------------
+
+  SCAN_STATS.folders = 0;
+  SCAN_STATS.images = 0;
+  SCAN_STATS.skipped = 0;
+
+  const files =
+    scanFolderDriveAPI(folderId);
+
+  info("Folders scanned : " + SCAN_STATS.folders);
+  info("Images found    : " + SCAN_STATS.images);
+  info("Skipped files   : " + SCAN_STATS.skipped);
+
+  if (!files.length) {
+    warning("No media files were found.");
+    return;
+  }
+
+  // ------------------------------------------------------
+  // Select first file
+  // ------------------------------------------------------
+
+  const file = files[0];
+
+  info("Testing file:");
+  info("ID   : " + file.id);
+  info("Name : " + file.title);
+  info("Type : " + file.mimeType);
+
+  // ------------------------------------------------------
+  // Build Media Object
+  // ------------------------------------------------------
+
+  let media =
+    buildMediaObject(file);
+
+  info("Media object created.");
+
+  // ------------------------------------------------------
+  // Populate Metadata
+  // ------------------------------------------------------
+
+  media =
+    populateMediaMetadata(media);
+
+  info("Metadata populated.");
+
+  // ------------------------------------------------------
+  // Convert to Database Row
+  // ------------------------------------------------------
+
+  const row =
+    mediaObjectToRow(media);
+
+  info("Database row created.");
+
+  // ------------------------------------------------------
+  // Output
+  // ------------------------------------------------------
+
+  Logger.log("========== MEDIA OBJECT ==========");
+  Logger.log(media);
+
+  Logger.log("========== DATABASE ROW ==========");
+  Logger.log(row);
+
+  info("================================");
+  info("TEST COMPLETE");
+  info("NO DATABASE WRITE PERFORMED");
+  info("================================");
+
+}
+
+
+/**
+ * Tests Sync duplicate detection.
+ *
+ * READ-ONLY.
+ * Does NOT write to Media Database.
+ */
+function testSyncDuplicateDetection() {
+
+  info("================================");
+  info("TEST: Sync Duplicate Detection");
+  info("================================");
+
+  const folderId =
+    getSetting("Media Root Folder ID");
+
+  if (!folderId) {
+    warning("Media Root Folder ID is missing.");
+    return;
+  }
+
+  // ------------------------------------------------------
+  // Scan Drive
+  // ------------------------------------------------------
+
+  SCAN_STATS.folders = 0;
+  SCAN_STATS.images = 0;
+  SCAN_STATS.skipped = 0;
+
+  const files =
+    scanFolderDriveAPI(folderId);
+
+  info("Files scanned: " + files.length);
+
+  // ------------------------------------------------------
+  // Load existing database IDs
+  // ------------------------------------------------------
+
+  const existingIds =
+    getExistingFileIds();
+
+  const existingIdCount =
+    Object.keys(existingIds).length;
+
+  info(
+    "Database IDs found: " +
+    existingIdCount
+  );
+
+  // ------------------------------------------------------
+  // Compare
+  // ------------------------------------------------------
+
+  let existing = 0;
+  let newFiles = 0;
+
+  files.forEach(function(file) {
+
+    if (existingIds[file.id]) {
+      existing++;
+    } else {
+      newFiles++;
+    }
+
+  });
+
+  // ------------------------------------------------------
+  // Results
+  // ------------------------------------------------------
+
+  info("Already existing: " + existing);
+  info("New files: " + newFiles);
+
+  info("--------------------------------");
+
+  if (newFiles === 0) {
+
+    info(
+      "RESULT: All scanned files already exist."
+    );
+
+  } else {
+
+    warning(
+      "RESULT: " +
+      newFiles +
+      " scanned file(s) are not in the database."
+    );
+
+  }
+
+  info("================================");
+  info("TEST COMPLETE");
+  info("NO DATABASE WRITE PERFORMED");
+  info("================================");
+
+}
+
+

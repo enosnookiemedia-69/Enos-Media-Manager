@@ -164,43 +164,86 @@ function saveReviewerPosition(rowNumber) {
  *
  * Calculated from current position.
  */
+// ==========================================================
+// REVIEW COUNT
+// ==========================================================
+
+/**
+ * Returns the actual number of images that have been reviewed.
+ *
+ * Review Status in the Media Database is the authoritative
+ * source for this value.
+ *
+ * This is intentionally separate from the current reviewer
+ * position because the reviewer can skip images.
+ */
 function getReviewCount() {
 
+  const media =
+    getAllMedia();
 
-  const currentRow =
-    getLastReviewedRow();
+  let reviewedCount = 0;
 
+  // Skip row 1 because it contains the headers.
+  for (
+    let i = 1;
+    i < media.length;
+    i++
+  ) {
 
-  return Math.max(
-    0,
-    currentRow - REVIEWER.START_ROW
-  );
+    const reviewStatus =
+      media[i][COL.REVIEW_STATUS - 1];
+
+    if (
+      reviewStatus === "Reviewed"
+    ) {
+
+      reviewedCount++;
+
+    }
+
+  }
+
+  return reviewedCount;
 
 }
 
 
+// ==========================================================
+// REVIEW PROGRESS
+// ==========================================================
+
 /**
  * Returns reviewer progress information.
+ *
+ * Current row:
+ *   The image currently being viewed.
+ *
+ * Reviewed:
+ *   The actual number of images marked "Reviewed"
+ *   in the Media Database.
+ *
+ * Last review:
+ *   The timestamp stored in User Properties.
  */
 function getReviewProgress() {
 
+  const properties =
+    PropertiesService
+      .getUserProperties();
 
   return {
 
     currentRow:
       getLastReviewedRow(),
 
-
     reviewed:
       getReviewCount(),
 
-
     lastReview:
-      PropertiesService
-        .getUserProperties()
-        .getProperty(
-          REVIEWER.LAST_REVIEW_PROPERTY
-        )
+      properties.getProperty(
+        REVIEWER.LAST_REVIEW_PROPERTY
+      )
 
   };
 
@@ -516,6 +559,8 @@ Object.keys(updates)
   });
 
 
+
+
 // ======================================================
 // CALCULATE EDITORIAL SCORE
 // ======================================================
@@ -532,6 +577,32 @@ Logger.log(
   "Editorial Score: " + score
 );
 
+
+// ======================================================
+// SYNCHRONISE BOOK CANDIDATE
+// ======================================================
+//
+// If the image has been marked as a Book Candidate,
+// synchronise it into Final Book Possibilities.
+//
+
+if (
+  updatedRecord[COL.BOOK_CANDIDATE - 1] === true
+) {
+
+  Logger.log(
+    "Book Candidate: TRUE"
+  );
+
+  syncBookList();
+
+} else {
+
+  Logger.log(
+    "Book Candidate: FALSE"
+  );
+
+}
 
 // ======================================================
 // MOVE TO NEXT IMAGE
@@ -680,3 +751,682 @@ function debugCurrentReviewRow() {
 }
 
 
+// ==========================================================
+// TEST FUNCTIONS
+// ==========================================================
+
+/**
+ * Tests the reviewer progress system.
+ *
+ * This test is completely read-only.
+ *
+ * Compares:
+ * • Current reviewer position
+ * • Calculated reviewer count
+ * • Actual Review Status records
+ * • Last review timestamp
+ */
+function testReviewProgress() {
+
+  Logger.log("==========================================");
+  Logger.log("REVIEW PROGRESS TEST");
+  Logger.log("==========================================");
+
+  // --------------------------------------------------------
+  // Reviewer position
+  // --------------------------------------------------------
+
+  const currentRow =
+    getLastReviewedRow();
+
+  const reviewCount =
+    getReviewCount();
+
+  const progress =
+    getReviewProgress();
+
+  Logger.log(
+    "Reviewer start row: " +
+    REVIEWER.START_ROW
+  );
+
+  Logger.log(
+    "Current reviewer row: " +
+    currentRow
+  );
+
+  Logger.log(
+    "Calculated review count: " +
+    reviewCount
+  );
+
+  Logger.log(
+    "Progress reviewed value: " +
+    progress.reviewed
+  );
+
+  Logger.log(
+    "Last review timestamp: " +
+    progress.lastReview
+  );
+
+  Logger.log("------------------------------------------");
+
+  // --------------------------------------------------------
+  // Actual database review status
+  // --------------------------------------------------------
+
+  const media =
+    getAllMedia();
+
+  let actualReviewed = 0;
+
+  for (
+    let i = 1;
+    i < media.length;
+    i++
+  ) {
+
+    const status =
+      media[i][COL.REVIEW_STATUS - 1];
+
+    if (
+      status === "Reviewed"
+    ) {
+
+      actualReviewed++;
+
+    }
+
+  }
+
+  Logger.log(
+    "Media database records: " +
+    (media.length - 1)
+  );
+
+  Logger.log(
+    "Actual 'Reviewed' records: " +
+    actualReviewed
+  );
+
+  Logger.log("------------------------------------------");
+
+  // --------------------------------------------------------
+  // Comparison
+  // --------------------------------------------------------
+
+  Logger.log(
+    "Reviewer count: " +
+    reviewCount
+  );
+
+  Logger.log(
+    "Actual reviewed records: " +
+    actualReviewed
+  );
+
+  Logger.log(
+    "Difference: " +
+    (reviewCount - actualReviewed)
+  );
+
+  Logger.log("------------------------------------------");
+
+  if (
+    reviewCount === actualReviewed
+  ) {
+
+    Logger.log(
+      "RESULT: Reviewer progress matches database."
+    );
+
+  } else {
+
+    Logger.log(
+      "RESULT: Reviewer progress DOES NOT match database."
+    );
+
+  }
+
+  Logger.log("==========================================");
+  Logger.log("REVIEW PROGRESS TEST COMPLETE");
+  Logger.log("==========================================");
+
+}
+
+
+
+
+/**
+ * ==========================================================
+ * REVIEW STATUS AUDIT TEST
+ * ----------------------------------------------------------
+ * Audits the actual Review Status values stored in the
+ * Media Database.
+ *
+ * This test is completely read-only.
+ *
+ * It does NOT:
+ * • Change reviewer position
+ * • Change review status
+ * • Modify the Media Database
+ * • Modify user properties
+ *
+ * Purpose:
+ * • Show exactly how many records have each Review Status
+ * • Confirm the database state before changing review logic
+ * ==========================================================
+ */
+function testReviewStatusAudit() {
+
+  Logger.log("==========================================");
+  Logger.log("REVIEW STATUS AUDIT TEST");
+  Logger.log("==========================================");
+
+  const media =
+    getAllMedia();
+
+  const statusColumn =
+    COL.REVIEW_STATUS - 1;
+
+  const statusCounts = {};
+
+  let totalRecords = 0;
+
+  // --------------------------------------------------------
+  // Scan Media Database
+  // --------------------------------------------------------
+
+  for (
+    let i = 1;
+    i < media.length;
+    i++
+  ) {
+
+    totalRecords++;
+
+    let status =
+      media[i][statusColumn];
+
+    // Treat blank cells as "Blank"
+    if (
+      status === null ||
+      status === undefined ||
+      status === ""
+    ) {
+
+      status = "Blank";
+
+    }
+
+    statusCounts[status] =
+      (statusCounts[status] || 0) + 1;
+  }
+
+  // --------------------------------------------------------
+  // Results
+  // --------------------------------------------------------
+
+  Logger.log(
+    "Total media records: " +
+    totalRecords
+  );
+
+  Logger.log("------------------------------------------");
+
+  Object.keys(statusCounts)
+    .sort()
+    .forEach(function(status) {
+
+      Logger.log(
+        status +
+        " : " +
+        statusCounts[status]
+      );
+
+    });
+
+  Logger.log("------------------------------------------");
+
+  Logger.log(
+    "Reviewed records: " +
+    (statusCounts["Reviewed"] || 0)
+  );
+
+  Logger.log(
+    "Reviewer progress: " +
+    getReviewCount()
+  );
+
+  Logger.log("------------------------------------------");
+
+  Logger.log("REVIEW STATUS AUDIT COMPLETE");
+
+  Logger.log("==========================================");
+}
+
+
+
+
+/**
+ * ==========================================================
+ * TEST: REVIEW STATUS RECORDS
+ * ----------------------------------------------------------
+ * Lists every media record currently marked as Reviewed.
+ *
+ * Used to compare the actual database review state against
+ * the reviewer's stored progress position.
+ * ==========================================================
+ */
+function testReviewStatusRecords() {
+
+  Logger.log("==========================================");
+  Logger.log("REVIEW STATUS RECORDS TEST");
+  Logger.log("==========================================");
+
+  const media =
+    getAllMedia();
+
+  let reviewedCount = 0;
+
+  for (
+    let i = 1;
+    i < media.length;
+    i++
+  ) {
+
+    const status =
+      media[i][COL.REVIEW_STATUS - 1];
+
+    if (status === "Reviewed") {
+
+      reviewedCount++;
+
+      const rowNumber = i + 1;
+
+      const fileName =
+        media[i][COL.NAME - 1];
+
+      const reviewDate =
+        media[i][COL.REVIEW_DATE - 1];
+
+      const grade =
+        media[i][COL.GRADE - 1];
+
+      const bookCandidate =
+        media[i][COL.BOOK_CANDIDATE - 1];
+
+      const finalBook =
+        media[i][COL.FINAL_BOOK - 1];
+
+      Logger.log("------------------------------------------");
+
+      Logger.log(
+        "Row: " +
+        rowNumber
+      );
+
+      Logger.log(
+        "File: " +
+        fileName
+      );
+
+      Logger.log(
+        "Review Date: " +
+        reviewDate
+      );
+
+      Logger.log(
+        "Grade: " +
+        grade
+      );
+
+      Logger.log(
+        "Book Candidate: " +
+        bookCandidate
+      );
+
+      Logger.log(
+        "Final Book: " +
+        finalBook
+      );
+
+    }
+
+  }
+
+  Logger.log("------------------------------------------");
+
+  Logger.log(
+    "Total Reviewed records: " +
+    reviewedCount
+  );
+
+  Logger.log(
+    "Reviewer calculated count: " +
+    getReviewCount()
+  );
+
+  Logger.log(
+    "Current reviewer row: " +
+    getLastReviewedRow()
+  );
+
+  Logger.log("==========================================");
+  Logger.log("REVIEW STATUS RECORDS TEST COMPLETE");
+  Logger.log("==========================================");
+
+}
+
+// ==========================================================
+// REVIEW COUNTING TEST
+// ==========================================================
+
+/**
+ * Tests the actual review and book-selection counts.
+ *
+ * This test is completely read-only.
+ *
+ * Compares:
+ * • Reviewer position count
+ * • Actual Review Status records
+ * • Book Candidate records
+ * • Final Book records
+ *
+ * Also lists every reviewed image.
+ */
+function testReviewCounting() {
+
+  Logger.log("==========================================");
+  Logger.log("REVIEW COUNTING TEST");
+  Logger.log("==========================================");
+
+  // --------------------------------------------------------
+  // REVIEWER POSITION
+  // --------------------------------------------------------
+
+  const currentRow =
+    getLastReviewedRow();
+
+  const reviewerCount =
+    getReviewCount();
+
+  Logger.log(
+    "Reviewer start row: " +
+    REVIEWER.START_ROW
+  );
+
+  Logger.log(
+    "Current reviewer row: " +
+    currentRow
+  );
+
+  Logger.log(
+    "Reviewer position count: " +
+    reviewerCount
+  );
+
+  Logger.log("------------------------------------------");
+
+  // --------------------------------------------------------
+  // READ MEDIA DATABASE
+  // --------------------------------------------------------
+
+  const media =
+    getAllMedia();
+
+  let actualReviewed = 0;
+  let bookCandidates = 0;
+  let finalBookCount = 0;
+
+  const reviewedImages = [];
+
+  // --------------------------------------------------------
+  // COUNT DATABASE VALUES
+  // --------------------------------------------------------
+
+  for (
+    let i = 1;
+    i < media.length;
+    i++
+  ) {
+
+    const record =
+      media[i];
+
+    const rowNumber =
+      i + 1;
+
+    const fileName =
+      record[COL.NAME - 1];
+
+    const reviewStatus =
+      record[COL.REVIEW_STATUS - 1];
+
+    const reviewDate =
+      record[COL.REVIEW_DATE - 1];
+
+    const grade =
+      record[COL.GRADE - 1];
+
+    const bookCandidate =
+      record[COL.BOOK_CANDIDATE - 1];
+
+    const finalBook =
+      record[COL.FINAL_BOOK - 1];
+
+    // ------------------------------------------------------
+    // REVIEWED
+    // ------------------------------------------------------
+
+    if (
+      reviewStatus === "Reviewed"
+    ) {
+
+      actualReviewed++;
+
+      reviewedImages.push({
+
+        row:
+          rowNumber,
+
+        fileName:
+          fileName,
+
+        reviewDate:
+          reviewDate,
+
+        grade:
+          grade,
+
+        bookCandidate:
+          bookCandidate,
+
+        finalBook:
+          finalBook
+
+      });
+
+    }
+
+    // ------------------------------------------------------
+    // BOOK CANDIDATE
+    // ------------------------------------------------------
+
+    if (
+      bookCandidate === true ||
+      bookCandidate === "TRUE"
+    ) {
+
+      bookCandidates++;
+
+    }
+
+    // ------------------------------------------------------
+    // FINAL BOOK
+    // ------------------------------------------------------
+
+    if (
+      finalBook === true ||
+      finalBook === "TRUE"
+    ) {
+
+      finalBookCount++;
+
+    }
+
+  }
+
+  // --------------------------------------------------------
+  // DATABASE TOTALS
+  // --------------------------------------------------------
+
+  Logger.log(
+    "Media database records: " +
+    (media.length - 1)
+  );
+
+  Logger.log(
+    "Actual Reviewed records: " +
+    actualReviewed
+  );
+
+  Logger.log(
+    "Actual Book Candidate records: " +
+    bookCandidates
+  );
+
+  Logger.log(
+    "Actual Final Book records: " +
+    finalBookCount
+  );
+
+  Logger.log("------------------------------------------");
+
+  // --------------------------------------------------------
+  // REVIEWED IMAGE DETAILS
+  // --------------------------------------------------------
+
+  Logger.log(
+    "REVIEWED IMAGE RECORDS"
+  );
+
+  Logger.log("------------------------------------------");
+
+  if (
+    reviewedImages.length === 0
+  ) {
+
+    Logger.log(
+      "No reviewed images found."
+    );
+
+  } else {
+
+    reviewedImages.forEach(
+      function(image) {
+
+        Logger.log(
+          "Row: " +
+          image.row
+        );
+
+        Logger.log(
+          "File: " +
+          image.fileName
+        );
+
+        Logger.log(
+          "Review Date: " +
+          image.reviewDate
+        );
+
+        Logger.log(
+          "Grade: " +
+          image.grade
+        );
+
+        Logger.log(
+          "Book Candidate: " +
+          image.bookCandidate
+        );
+
+        Logger.log(
+          "Final Book: " +
+          image.finalBook
+        );
+
+        Logger.log(
+          "------------------------------------------"
+        );
+
+      }
+    );
+
+  }
+
+  // --------------------------------------------------------
+  // REVIEW COUNT COMPARISON
+  // --------------------------------------------------------
+
+  Logger.log(
+    "REVIEW COUNT COMPARISON"
+  );
+
+  Logger.log("------------------------------------------");
+
+  Logger.log(
+    "Reviewer position count: " +
+    reviewerCount
+  );
+
+  Logger.log(
+    "Actual reviewed count: " +
+    actualReviewed
+  );
+
+  Logger.log(
+    "Difference: " +
+    (reviewerCount - actualReviewed)
+  );
+
+  Logger.log("------------------------------------------");
+
+  if (
+    reviewerCount === actualReviewed
+  ) {
+
+    Logger.log(
+      "RESULT: Reviewer count matches actual reviewed records."
+    );
+
+  } else {
+
+    Logger.log(
+      "RESULT: Reviewer count DOES NOT match actual reviewed records."
+    );
+
+  }
+
+  // --------------------------------------------------------
+  // BOOK SELECTION TOTALS
+  // --------------------------------------------------------
+
+  Logger.log("------------------------------------------");
+
+  Logger.log(
+    "Book Candidates: " +
+    bookCandidates
+  );
+
+  Logger.log(
+    "Final Book: " +
+    finalBookCount
+  );
+
+  Logger.log("==========================================");
+  Logger.log("REVIEW COUNTING TEST COMPLETE");
+  Logger.log("==========================================");
+
+}
