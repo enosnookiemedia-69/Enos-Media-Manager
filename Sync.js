@@ -11,13 +11,31 @@
  * • Prevent duplicate imports
  * • Build media records
  * • Add new records to Media Database
- * • Prepare database for future update tracking
+ * • Maintain missing thumbnails
+ * • Skip unchanged existing files
+ * • Record synchronisation statistics
  *
  * This file communicates with:
  * • Google Drive
  * • Database.gs
  * • Config.gs
+ * • Metadata.gs
  * • Utilities.gs
+ * • Thumbnails.gs
+ *
+ * IMPORTANT
+ * ---------
+ * Sync is responsible for:
+ *
+ * 1. Discovering NEW files
+ * 2. Importing complete metadata for NEW files
+ * 3. Generating thumbnails for NEW files
+ * 4. Repairing missing thumbnails on EXISTING files
+ *
+ * Existing metadata is NOT rebuilt during normal Sync.
+ *
+ * Existing metadata can be deliberately refreshed using
+ * refreshMetadata().
  * ==========================================================
  */
 
@@ -29,8 +47,15 @@
 const SYNC_STATS = {
 
   scanned: 0,
-  existing: 0,
+
   added: 0,
+
+  updated: 0,
+
+  skipped: 0,
+
+  thumbnailsFixed: 0,
+
   errors: 0
 
 };
@@ -43,199 +68,419 @@ const SYNC_STATS = {
 /**
  * Synchronises Google Drive with the Media Database.
  *
- * Scans Drive, builds complete media objects,
- * and writes new records in batches.
+ * The sync process:
+ *
+ * 1. Validate the configured root folder
+ * 2. Scan Google Drive recursively
+ * 3. Load existing database records
+ * 4. Compare Drive File IDs
+ * 5. Repair missing thumbnails on existing records
+ * 6. Build complete metadata for new files
+ * 7. Generate thumbnails for new files
+ * 8. Add new records in one batch
+ * 9. Record synchronisation statistics
+ *
+ * Existing metadata is NOT rebuilt during Sync.
+ *
+ * Metadata refreshes for existing records are handled
+ * separately by refreshMetadata().
  */
 function sync() {
 
-  // --------------------------------------------------------
-  // Reset Sync Statistics
-  // --------------------------------------------------------
+  const startTime =
+    new Date();
 
-SYNC_STATS.scanned = 0;
-SYNC_STATS.existing = 0;
-SYNC_STATS.added = 0;
-SYNC_STATS.errors = 0;
 
-  info("Starting media synchronisation...");
+  // ========================================================
+  // RESET SYNC STATISTICS
+  // ========================================================
+
+  SYNC_STATS.scanned = 0;
+
+  SYNC_STATS.added = 0;
+
+  SYNC_STATS.updated = 0;
+
+  SYNC_STATS.skipped = 0;
+
+  SYNC_STATS.thumbnailsFixed = 0;
+
+  SYNC_STATS.errors = 0;
+
+
+  // ========================================================
+  // VALIDATE ROOT FOLDER
+  // ========================================================
 
   const folderId =
     getSetting("Media Root Folder ID");
 
-  info("Scanning Drive folder...");
+
+  if (!folderId) {
+
+    throw new Error(
+      "Media Root Folder ID is not configured."
+    );
+
+  }
 
 
-  // --------------------------------------------------------
-  // Reset Scanner Statistics
-  // --------------------------------------------------------
+  // ========================================================
+  // START SYNC
+  // ========================================================
 
-  SCAN_STATS.folders = 0;
-  SCAN_STATS.images = 0;
-  SCAN_STATS.skipped = 0;
+  info(
+    "Starting media synchronisation..."
+  );
 
 
-  // --------------------------------------------------------
-  // Scan Google Drive
-  // --------------------------------------------------------
+  // ========================================================
+  // SCAN GOOGLE DRIVE
+  // ========================================================
+
+  info(
+    "Scanning Drive..."
+  );
+
 
   const driveFiles =
     scanFolderDriveAPI(folderId);
 
-  info(
-    "Folders scanned: " +
-    SCAN_STATS.folders
-  );
+
+  SYNC_STATS.scanned =
+    driveFiles.length;
+
 
   info(
-    "Images found: " +
-    SCAN_STATS.images
-  );
-
-  info(
-    "Skipped files: " +
-    SCAN_STATS.skipped
-  );
-
-  info(
-    "Files found: " +
-    driveFiles.length
+    "Files scanned: " +
+    SYNC_STATS.scanned
   );
 
 
- // --------------------------------------------------------
-// Prepare Import
-// --------------------------------------------------------
-// Load existing File IDs.
-// Used to prevent duplicate imports.
-// --------------------------------------------------------
+  // ========================================================
+  // LOAD EXISTING DATABASE RECORDS
+  // ========================================================
+  //
+  // getMediaCache() reads the database once and creates
+  // an in-memory lookup keyed by Google Drive File ID.
+  //
+  // This allows Sync to determine whether a file has already
+  // been imported without repeatedly reading the sheet.
+  //
+  // ========================================================
 
-const existingIds =
-  getExistingFileIds();
+  const mediaCache =
+    getMediaCache();
 
-const batchSize = 50;
-
-let records = [];
-
-  // --------------------------------------------------------
-  // Process Files
-  // --------------------------------------------------------
-
-  driveFiles.forEach(function(file, index) {
-
-  // ------------------------------------------------------
-  // Statistics
-  // ------------------------------------------------------
-
-  SYNC_STATS.scanned++;
-
-// ------------------------------------------------------
-// Existing Record?
-// ------------------------------------------------------
-// Already imported.
-// Skip immediately.
-// ------------------------------------------------------
-
-if (existingIds[file.id]) {
-
-  SYNC_STATS.existing++;
-
-  return;
-
-}
-
-// ------------------------------------------------------
-// Progress Logging
-// ------------------------------------------------------
-
-if (index % 100 === 0) {
 
   info(
-    "Processing " +
-    (index + 1) +
-    " / " +
-    driveFiles.length
+    "Existing database records: " +
+    Object.keys(mediaCache).length
   );
 
-}
+
+  // ========================================================
+  // PREPARE NEW RECORDS
+  // ========================================================
+
+  const newRecords = [];
 
 
-  // ------------------------------------------------------
-  // Import Media
-  // ------------------------------------------------------
+  // ========================================================
+  // PROCESS DRIVE FILES
+  // ========================================================
 
-  try {
+  driveFiles.forEach(function(file) {
 
-    let media = buildMediaObject(file);
+    try {
 
-    media = populateMediaMetadata(media);
+      // ====================================================
+      // EXISTING RECORD CHECK
+      // ====================================================
+      //
+      // The Google Drive File ID is the unique identifier
+      // used to determine whether this image has already
+      // been imported.
+      //
+      // Existing records are NOT rebuilt or reprocessed.
+      //
+      // Sync does, however, maintain the required thumbnail.
+      //
+      // If an existing record has no valid thumbnail,
+      // the thumbnail is repaired without touching any
+      // other field.
+      //
+      // ====================================================
 
-    if (CONFIG.DEBUG.ENABLED) {
-      Logger.log(media);
-    }
+      const existing =
+        mediaCache[file.id];
 
-    records.push(
-      mediaObjectToRow(media)
-    );
 
-    if (records.length >= batchSize) {
+      if (existing) {
 
-      const written =
-        addMediaBatch(records);
+        // ==================================================
+        // CHECK EXISTING THUMBNAIL
+        // ==================================================
 
-      SYNC_STATS.added += written;
+        const thumbnail =
+          existing["Thumbnail"];
 
-      info(
-        "Written " +
-        written +
-        " records."
+
+        const thumbnailStatus =
+          existing["Thumbnail Status"];
+
+
+        // ==================================================
+        // REPAIR MISSING THUMBNAIL
+        // ==================================================
+
+        if (
+          !hasThumbnail(thumbnail) ||
+          thumbnailStatus !== "Generated"
+        ) {
+
+          // ----------------------------------------------
+          // Respect thumbnail configuration
+          // ----------------------------------------------
+
+          if (
+            getSetting("Create Thumbnails") === true
+          ) {
+
+            const thumbnailFormula =
+              getThumbnailFormula(file.id);
+
+
+            const repaired =
+              updateMediaThumbnail(
+                file.id,
+                thumbnailFormula,
+                "Generated"
+              );
+
+
+            if (repaired) {
+
+              SYNC_STATS.updated++;
+
+              SYNC_STATS.thumbnailsFixed++;
+
+            }
+
+            else {
+
+              SYNC_STATS.errors++;
+
+              warning(
+                "Unable to update thumbnail for " +
+                file.id
+              );
+
+            }
+
+          }
+
+          else {
+
+            SYNC_STATS.skipped++;
+
+          }
+
+        }
+
+        else {
+
+          // ----------------------------------------------
+          // Existing record is already complete
+          // ----------------------------------------------
+
+          SYNC_STATS.skipped++;
+
+        }
+
+
+        return;
+
+      }
+
+
+      // ====================================================
+      // NEW RECORD
+      // ====================================================
+      //
+      // Only genuinely new files reach this section.
+      //
+      // ====================================================
+
+
+      // ----------------------------------------------------
+      // Build Media Object
+      // ----------------------------------------------------
+
+      let media =
+        buildMediaObject(file);
+
+
+      // ----------------------------------------------------
+      // Populate Complete Metadata
+      // ----------------------------------------------------
+      //
+      // Metadata extraction occurs only for newly imported
+      // files.
+      //
+      // ----------------------------------------------------
+
+      media =
+        populateMediaMetadata(media);
+
+
+      // ----------------------------------------------------
+      // Generate Thumbnail
+      // ----------------------------------------------------
+      //
+      // Thumbnail generation is performed for new records.
+      //
+      // This keeps newly imported records consistent with
+      // existing records repaired by Sync.
+      //
+      // ----------------------------------------------------
+
+      if (
+        getSetting("Create Thumbnails") === true
+      ) {
+
+        media =
+          generateThumbnail(media);
+
+      }
+
+
+      // ----------------------------------------------------
+      // Convert Media Object to Database Row
+      // ----------------------------------------------------
+
+      const currentRecord =
+        mediaObjectToRow(media);
+
+
+      // ----------------------------------------------------
+      // Queue New Record
+      // ----------------------------------------------------
+
+      newRecords.push(
+        currentRecord
       );
 
-      records = [];
+    }
+
+    catch (err) {
+
+      SYNC_STATS.errors++;
+
+
+      warning(
+        "Unable to process " +
+        (file.title || file.id) +
+        ": " +
+        err.message
+      );
 
     }
+
+  });
+
+
+  // ========================================================
+  // ADD NEW RECORDS
+  // ========================================================
+  //
+  // All new records are written to the database in one
+  // spreadsheet operation.
+  //
+  // ========================================================
+
+  if (newRecords.length) {
+
+    SYNC_STATS.added =
+      addMediaBatch(newRecords);
 
   }
 
-catch (err) {
 
-  SYNC_STATS.errors++;
+  // ========================================================
+  // SYNC DURATION
+  // ========================================================
 
-  warning(
-    "Unable to import " +
-    file.title +
-    ": " +
-    err.message
+  const duration =
+    (
+      new Date().getTime() -
+      startTime.getTime()
+    ) / 1000;
+
+
+  // ========================================================
+  // SYNC SUMMARY
+  // ========================================================
+
+  info(
+    "--------------------------------"
+  );
+
+
+  info(
+    "Sync complete."
+  );
+
+
+  info(
+    "Scanned : " +
+    SYNC_STATS.scanned
+  );
+
+
+  info(
+    "Added   : " +
+    SYNC_STATS.added
+  );
+
+
+  info(
+    "Updated : " +
+    SYNC_STATS.updated
+  );
+
+
+  info(
+    "Skipped : " +
+    SYNC_STATS.skipped
+  );
+
+
+  info(
+    "Thumbs  : " +
+    SYNC_STATS.thumbnailsFixed
+  );
+
+
+  info(
+    "Errors  : " +
+    SYNC_STATS.errors
+  );
+
+
+  info(
+    "Duration: " +
+    duration.toFixed(1) +
+    " seconds."
+  );
+
+
+  info(
+    "--------------------------------"
   );
 
 }
 
-});   // End of driveFiles.forEach()
-
-// --------------------------------------------------------
-// Write Remaining Records
-// --------------------------------------------------------
-
-if (records.length) {
-
-  const written =
-    addMediaBatch(records);
-
-  SYNC_STATS.added += written;
-
-}
-
-
-// --------------------------------------------------------
-// Summary
-// --------------------------------------------------------
-
-info("--------------------------------");
-
-info("Scanned : " + SYNC_STATS.scanned);
-info("Existing : " + SYNC_STATS.existing);
-info("Added : " + SYNC_STATS.added);
-info("Errors : " + SYNC_STATS.errors);
-}
 
 // ==========================================================
 // DRIVE HELPERS
@@ -244,6 +489,8 @@ info("Errors : " + SYNC_STATS.errors);
 /**
  * Returns the configured root media folder.
  *
+ * The folder ID is always obtained from Settings.
+ *
  * @returns {Folder}
  */
 function getRootFolder() {
@@ -251,206 +498,18 @@ function getRootFolder() {
   const folderId =
     getSetting("Media Root Folder ID");
 
-  return DriveApp.getFolderById(folderId);
-
-}
-
-
-
-
-/**
- * Tests the complete sync pipeline on ONE file.
- *
- * This test is READ-ONLY.
- * It does NOT write anything to Media Database.
- */
-function testSingleSyncPipeline() {
-
-  info("================================");
-  info("TEST: Single Sync Pipeline");
-  info("================================");
-
-  const folderId =
-    getSetting("Media Root Folder ID");
 
   if (!folderId) {
-    warning("Media Root Folder ID is missing.");
-    return;
+
+    throw new Error(
+      "Media Root Folder ID is not configured."
+    );
+
   }
 
-  info("Root folder ID: " + folderId);
 
-  // ------------------------------------------------------
-  // Scan Drive
-  // ------------------------------------------------------
-
-  SCAN_STATS.folders = 0;
-  SCAN_STATS.images = 0;
-  SCAN_STATS.skipped = 0;
-
-  const files =
-    scanFolderDriveAPI(folderId);
-
-  info("Folders scanned : " + SCAN_STATS.folders);
-  info("Images found    : " + SCAN_STATS.images);
-  info("Skipped files   : " + SCAN_STATS.skipped);
-
-  if (!files.length) {
-    warning("No media files were found.");
-    return;
-  }
-
-  // ------------------------------------------------------
-  // Select first file
-  // ------------------------------------------------------
-
-  const file = files[0];
-
-  info("Testing file:");
-  info("ID   : " + file.id);
-  info("Name : " + file.title);
-  info("Type : " + file.mimeType);
-
-  // ------------------------------------------------------
-  // Build Media Object
-  // ------------------------------------------------------
-
-  let media =
-    buildMediaObject(file);
-
-  info("Media object created.");
-
-  // ------------------------------------------------------
-  // Populate Metadata
-  // ------------------------------------------------------
-
-  media =
-    populateMediaMetadata(media);
-
-  info("Metadata populated.");
-
-  // ------------------------------------------------------
-  // Convert to Database Row
-  // ------------------------------------------------------
-
-  const row =
-    mediaObjectToRow(media);
-
-  info("Database row created.");
-
-  // ------------------------------------------------------
-  // Output
-  // ------------------------------------------------------
-
-  Logger.log("========== MEDIA OBJECT ==========");
-  Logger.log(media);
-
-  Logger.log("========== DATABASE ROW ==========");
-  Logger.log(row);
-
-  info("================================");
-  info("TEST COMPLETE");
-  info("NO DATABASE WRITE PERFORMED");
-  info("================================");
-
-}
-
-
-/**
- * Tests Sync duplicate detection.
- *
- * READ-ONLY.
- * Does NOT write to Media Database.
- */
-function testSyncDuplicateDetection() {
-
-  info("================================");
-  info("TEST: Sync Duplicate Detection");
-  info("================================");
-
-  const folderId =
-    getSetting("Media Root Folder ID");
-
-  if (!folderId) {
-    warning("Media Root Folder ID is missing.");
-    return;
-  }
-
-  // ------------------------------------------------------
-  // Scan Drive
-  // ------------------------------------------------------
-
-  SCAN_STATS.folders = 0;
-  SCAN_STATS.images = 0;
-  SCAN_STATS.skipped = 0;
-
-  const files =
-    scanFolderDriveAPI(folderId);
-
-  info("Files scanned: " + files.length);
-
-  // ------------------------------------------------------
-  // Load existing database IDs
-  // ------------------------------------------------------
-
-  const existingIds =
-    getExistingFileIds();
-
-  const existingIdCount =
-    Object.keys(existingIds).length;
-
-  info(
-    "Database IDs found: " +
-    existingIdCount
+  return DriveApp.getFolderById(
+    folderId
   );
 
-  // ------------------------------------------------------
-  // Compare
-  // ------------------------------------------------------
-
-  let existing = 0;
-  let newFiles = 0;
-
-  files.forEach(function(file) {
-
-    if (existingIds[file.id]) {
-      existing++;
-    } else {
-      newFiles++;
-    }
-
-  });
-
-  // ------------------------------------------------------
-  // Results
-  // ------------------------------------------------------
-
-  info("Already existing: " + existing);
-  info("New files: " + newFiles);
-
-  info("--------------------------------");
-
-  if (newFiles === 0) {
-
-    info(
-      "RESULT: All scanned files already exist."
-    );
-
-  } else {
-
-    warning(
-      "RESULT: " +
-      newFiles +
-      " scanned file(s) are not in the database."
-    );
-
-  }
-
-  info("================================");
-  info("TEST COMPLETE");
-  info("NO DATABASE WRITE PERFORMED");
-  info("================================");
-
 }
-
-

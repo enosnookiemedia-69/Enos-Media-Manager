@@ -1,6 +1,164 @@
 /**
  * ==========================================================
  * METADATA.GS
+ * ----------------------------------------------------------
+ * Responsible for extracting, calculating, and maintaining
+ * metadata associated with media files.
+ *
+ * PURPOSE
+ * -------
+ * Metadata.gs is the application's metadata layer.
+ *
+ * It takes information from Google Drive and the Advanced
+ * Drive API and applies it to Media Objects or existing
+ * Media Database records.
+ *
+ * It is responsible for making sure that a media record
+ * contains the latest available technical and source
+ * information before that record is used elsewhere in
+ * the application.
+ *
+ *
+ * RESPONSIBILITIES
+ * ----------------
+ * • Read Google Drive file information
+ * • Build full Drive folder paths
+ * • Extract the year from folder structure
+ * • Extract photographer from folder structure
+ * • Extract camera model from folder structure
+ * • Read file extension and MIME type
+ * • Read EXIF camera information
+ * • Read image width and height
+ * • Determine image orientation
+ * • Calculate simplified aspect ratio
+ * • Calculate megapixels
+ * • Read the original capture date when available
+ * • Generate thumbnail information
+ * • Track when metadata was last refreshed
+ * • Populate Media Objects with metadata
+ * • Update existing Media Database rows
+ * • Cache repeated metadata lookups
+ *
+ *
+ * TWO MAIN WORKFLOWS
+ * ------------------
+ *
+ * 1. NEW MEDIA
+ *
+ * Sync discovers a new Drive file and creates a Media
+ * Object. Metadata.gs then populates that object with
+ * the available folder, file, image, and thumbnail
+ * information before it is written to the database.
+ *
+ *
+ * 2. EXISTING MEDIA
+ *
+ * Metadata refresh can read an existing Media Database
+ * row, retrieve the latest information from Google Drive,
+ * and update the automatic metadata fields while leaving
+ * editorial information untouched.
+ *
+ *
+ * DATA SOURCES
+ * ------------
+ * Google Drive / DriveApp
+ * • File information
+ * • Folder structure
+ * • File dates
+ * • File size
+ * • File URL
+ *
+ * Advanced Google Drive API
+ * • MIME type
+ * • Image dimensions
+ * • Camera make
+ * • Camera model
+ * • EXIF capture date
+ *
+ *
+ * OUTPUT
+ * ------
+ * Metadata is written into:
+ *
+ * • Media Objects
+ * • Media Database automatic metadata columns
+ *
+ * Editorial fields such as Category, Grade, Story Value,
+ * Hero, Book Candidate, Final Book, Caption, Spread,
+ * Page, and Notes are not owned by this file.
+ *
+ *
+ * CACHING
+ * -------
+ * Metadata lookups can be expensive when processing a
+ * large image library. METADATA_CACHE stores folder and
+ * image metadata during the current execution to prevent
+ * unnecessary repeated Drive/API requests.
+ *
+ * The cache is execution-scoped and is cleared when the
+ * metadata workflow completes or explicitly requests it.
+ *
+ *
+ * THUMBNAILS
+ * ----------
+ * Thumbnail creation itself belongs to THUMBNAILS.GS.
+ *
+ * Metadata.gs is responsible for including thumbnail
+ * information when a Media Object is being populated.
+ *
+ * This keeps thumbnail-generation logic in one place while
+ * ensuring newly discovered media records are complete
+ * before they reach the database.
+ *
+ *
+ * MODULE COMMUNICATION
+ * --------------------
+ * Metadata.gs communicates with:
+ *
+ * • Sync.gs
+ *     Supplies newly discovered media files and controls
+ *     the synchronisation workflow.
+ *
+ * • MediaObject.gs
+ *     Provides the Media Object structure that this file
+ *     populates.
+ *
+ * • Database.gs
+ *     Provides access to existing Media Database records.
+ *
+ * • Thumbnails.gs
+ *     Generates thumbnail formulas and manages thumbnail
+ *     status.
+ *
+ * • Config.gs
+ *     Provides application configuration and column
+ *     definitions.
+ *
+ * • Utilities.gs
+ *     Provides logging and user-facing status functions.
+ *
+ *
+ * IMPORTANT DESIGN RULE
+ * ---------------------
+ * Metadata.gs owns metadata extraction and calculation.
+ *
+ * It should not contain:
+ *
+ * • Drive scanning logic
+ * • Database search logic
+ * • Editorial selection logic
+ * • Book layout logic
+ * • Review workflow logic
+ * • UI code
+ *
+ * Those responsibilities belong to their respective
+ * modules.
+ *
+ *
+ * VERSION
+ * -------
+ * Enos Media Manager 2.0.0
+ *
  * ==========================================================
  */
 
@@ -939,7 +1097,7 @@ function populateMediaMetadata(media) {
   media.orientation =
     image.orientation;
 
-media.aspectRatio =
+  media.aspectRatio =
     image.aspectRatio;
 
   media.megapixels =
@@ -947,6 +1105,15 @@ media.aspectRatio =
 
   media.dateTaken =
     image.dateTaken;
+
+
+  // ------------------------------------------------------
+  // Thumbnail
+  // ------------------------------------------------------
+
+  media =
+    generateThumbnail(media);
+
 
   // ------------------------------------------------------
   // Status
@@ -957,6 +1124,11 @@ media.aspectRatio =
 
   return media;
 }
+
+// ==========================================================
+// TEST FUNCTIONS
+// ==========================================================
+
 
 /**
  * Tests image metadata extraction

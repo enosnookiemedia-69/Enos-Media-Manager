@@ -563,6 +563,110 @@ function clearMediaDatabaseMenu() {
 
 
 
+// ==========================================================
+// UPDATE MEDIA THUMBNAIL
+// ==========================================================
+
+/**
+ * Updates only the thumbnail fields for an existing media record.
+ *
+ * This function deliberately changes ONLY:
+ *
+ * • Thumbnail
+ * • Thumbnail Status
+ *
+ * All other media fields are left untouched, including:
+ *
+ * • Category
+ * • Grade
+ * • Story Value
+ * • Hero
+ * • Editorial Score
+ * • Layout Suitability
+ * • Print Suitability
+ * • Caption
+ * • Spread
+ * • Page
+ * • Status
+ * • Notes
+ *
+ * This is the database-level function used when Sync
+ * discovers that an existing media record is missing
+ * its thumbnail.
+ *
+ * @param {string} fileId
+ * @param {string} thumbnailFormula
+ * @param {string} thumbnailStatus
+ * @returns {boolean}
+ */
+function updateMediaThumbnail(
+  fileId,
+  thumbnailFormula,
+  thumbnailStatus
+) {
+
+  if (!fileId) {
+
+    return false;
+
+  }
+
+
+  // --------------------------------------------------------
+  // Locate Existing Media Record
+  // --------------------------------------------------------
+
+  const row =
+    findRowByFileId(fileId);
+
+
+  if (row === -1) {
+
+    return false;
+
+  }
+
+
+  // --------------------------------------------------------
+  // Get Media Sheet
+  // --------------------------------------------------------
+
+  const sheet =
+    getMediaSheet();
+
+
+  // --------------------------------------------------------
+  // Update Thumbnail
+  // --------------------------------------------------------
+
+  sheet
+    .getRange(
+      row,
+      COL.THUMBNAIL
+    )
+    .setValue(
+      thumbnailFormula || ""
+    );
+
+
+  // --------------------------------------------------------
+  // Update Thumbnail Status
+  // --------------------------------------------------------
+
+  sheet
+    .getRange(
+      row,
+      COL.THUMBNAIL_STATUS
+    )
+    .setValue(
+      thumbnailStatus || ""
+    );
+
+
+  return true;
+
+}
+
 
 // ==========================================================
 // TEST FUNCTIONS
