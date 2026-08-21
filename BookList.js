@@ -149,7 +149,23 @@ function syncBookList() {
   let updated = 0;
 
 
-  media.forEach(function(mediaRecord) {
+  // ------------------------------------------------------
+  // Skip row 0 — it contains the Media Database headers,
+  // not a media record.
+  // ------------------------------------------------------
+
+  for (let i = 1; i < media.length; i++) {
+
+
+    // ------------------------------------------------------
+    // getAllMedia() returns raw spreadsheet rows (arrays).
+    // BookList.gs works with Media Object properties
+    // (mediaRecord.bookCandidate, mediaRecord.id, etc.),
+    // so each row must be converted first.
+    // ------------------------------------------------------
+
+    const mediaRecord =
+      rowToMediaObject(media[i]);
 
 
     // ------------------------------------------------------
@@ -158,7 +174,7 @@ function syncBookList() {
 
     if (!isBookCandidate(mediaRecord)) {
 
-      return;
+      continue;
 
     }
 
@@ -194,7 +210,7 @@ function syncBookList() {
 
     }
 
-  });
+  }
 
 
   info(
@@ -210,15 +226,6 @@ function syncBookList() {
   info(
     "Updated : " + updated
   );
-
-
-  return {
-
-    added: added,
-
-    updated: updated
-
-  };
 
 }
 
@@ -783,6 +790,91 @@ function testBookAspectRatio() {
       3024
     )
   );
+
+}
+
+/**
+ * ==========================================================
+ * TEST: BOOK CANDIDATE SYNC
+ * ----------------------------------------------------------
+ * Verifies that Book Candidates in the Media Database are
+ * correctly identified before syncBookList() runs.
+ *
+ * This test is completely read-only. It does NOT call
+ * syncBookList() or modify Final Book Image Possibilities.
+ *
+ * Use this to confirm the fix to syncBookList() before
+ * running it against real data.
+ * ==========================================================
+ */
+
+function testBookCandidateDetection() {
+
+  info("==========================================");
+  info("BOOK CANDIDATE DETECTION TEST");
+  info("==========================================");
+
+  const media =
+    getAllMedia();
+
+  let candidateCount = 0;
+
+  // Skip row 0 — headers, not a media record.
+  for (let i = 1; i < media.length; i++) {
+
+    const mediaRecord =
+      rowToMediaObject(media[i]);
+
+    if (isBookCandidate(mediaRecord)) {
+
+      candidateCount++;
+
+      info(
+        "Candidate: " +
+        mediaRecord.name +
+        " (File ID: " +
+        mediaRecord.id +
+        ")"
+      );
+
+    }
+
+  }
+
+  info("------------------------------------------");
+
+  info(
+    "Media Database records: " +
+    (media.length - 1)
+  );
+
+  info(
+    "Book Candidates found: " +
+    candidateCount
+  );
+
+  info("------------------------------------------");
+
+  if (candidateCount === 0) {
+
+    info(
+      "No Book Candidates found. This is expected if " +
+      "no images have been marked as Book Candidate yet."
+    );
+
+  } else {
+
+    info(
+      "RESULT: Book Candidate detection is working. " +
+      "Run syncBookList() to populate Final Book Image " +
+      "Possibilities with these records."
+    );
+
+  }
+
+  info("==========================================");
+  info("BOOK CANDIDATE DETECTION TEST COMPLETE");
+  info("==========================================");
 
 }
 

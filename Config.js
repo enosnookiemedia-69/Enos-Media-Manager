@@ -55,6 +55,8 @@ CONFIG.SHEETS = {
 
   BOOK: "Final Book Image Possibilities",
 
+  BOOK_LAYOUT: "Book Final Layout",
+
   LOG: "Sync Log",
 
   DASHBOARD: "Dashboard"
@@ -314,6 +316,22 @@ CONFIG.BOOK_ASSETS = [
  *
  * These are goals only and do not
  * affect application logic.
+ *
+ * FINAL_BOOK is derived from the actual
+ * Final Book Layout sheet (94 pages):
+ *   8 hero spreads    x 1 image  =   8
+ *   48 dual pages     x 2 images =  96
+ *   17 single pages   x 1 image  =  17
+ *   2 single-portrait x 1 image  =   2
+ *   ---------------------------------
+ *   TOTAL                        = 123
+ *
+ * (4 pages are pre-made AI artwork and
+ * 5 pages are text-only, so they don't
+ * draw from the Media Database pool.)
+ *
+ * If the layout changes, recount and
+ * update this value to match.
  */
 
 CONFIG.TARGETS = {
@@ -322,14 +340,13 @@ CONFIG.TARGETS = {
 
   SHORTLIST: 150,
 
-  FINAL_BOOK: 100,
+  FINAL_BOOK: 123,
 
   MIN_S_PER_CATEGORY: 8,
 
   MIN_A_PER_CATEGORY: 8
 
 };
-
 
 
 // ==========================================================
@@ -512,16 +529,9 @@ function getMediaSheet() {
 
 }
 
-/**
- * Returns the Book worksheet.
- *
- * @returns {Sheet}
- */
-function getBookSheet() {
-
-  return getSheet(CONFIG.SHEETS.BOOK);
-
-}
+// NOTE: getBookSheet() lives in BookList.js, not here,
+// since it caches the sheet reference and is called
+// directly by the Book List sync functions.
 
 /**
  * Returns the Log worksheet.
@@ -544,6 +554,18 @@ function getDashboardSheet() {
   return getSheet(CONFIG.SHEETS.DASHBOARD);
 
 }
+
+/**
+ * Returns the Final Book Layout worksheet.
+ *
+ * @returns {Sheet}
+ */
+function getBookLayoutSheet() {
+
+  return getSheet(CONFIG.SHEETS.BOOK_LAYOUT);
+
+}
+
 
 // Future worksheet helpers
 //
@@ -752,14 +774,20 @@ function testConfig() {
     CONFIG.SHEETS.SETTINGS
   );
 
-  Logger.log(
+   Logger.log(
     "Dashboard Sheet: " +
     CONFIG.SHEETS.DASHBOARD
+  );
+
+  Logger.log(
+    "Book Layout Sheet: " +
+    CONFIG.SHEETS.BOOK_LAYOUT
   );
 
   // --------------------------------------------------------
   // Spreadsheet access
   // --------------------------------------------------------
+
 
   const spreadsheet =
     SpreadsheetApp.getActiveSpreadsheet();
@@ -806,6 +834,11 @@ function testConfig() {
       CONFIG.SHEETS.DASHBOARD
     );
 
+  const bookLayoutSheet =
+    spreadsheet.getSheetByName(
+      CONFIG.SHEETS.BOOK_LAYOUT
+    );
+
   Logger.log(
     "Media Sheet Found: " +
     !!mediaSheet
@@ -826,9 +859,14 @@ function testConfig() {
     !!settingsSheet
   );
 
-  Logger.log(
+   Logger.log(
     "Dashboard Sheet Found: " +
     !!dashboardSheet
+  );
+
+  Logger.log(
+    "Book Layout Sheet Found: " +
+    !!bookLayoutSheet
   );
 
   // --------------------------------------------------------
@@ -840,7 +878,8 @@ function testConfig() {
     !bookSheet ||
     !logSheet ||
     !settingsSheet ||
-    !dashboardSheet
+    !dashboardSheet ||
+    !bookLayoutSheet
   ) {
 
     throw new Error(
