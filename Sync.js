@@ -513,3 +513,201 @@ function getRootFolder() {
   );
 
 }
+
+
+
+
+
+
+
+function testSingleSyncPipeline() {
+
+  info("==========================================");
+  info("SINGLE SYNC PIPELINE TEST");
+  info("==========================================");
+
+  const folderId =
+    getSetting("Media Root Folder ID");
+
+  info("Root folder: " + folderId);
+
+  const files =
+    scanFolderDriveAPI(folderId);
+
+  info("Files found: " + files.length);
+
+  if (!files.length) {
+    throw new Error("No media files found.");
+  }
+
+  const file = files[0];
+
+  info("Testing file: " + file.title);
+  info("File ID: " + file.id);
+
+  // --------------------------------------------------------
+  // BUILD MEDIA OBJECT
+  // --------------------------------------------------------
+
+  let media =
+    buildMediaObject(file);
+
+  info("buildMediaObject: PASS");
+
+  // --------------------------------------------------------
+  // POPULATE METADATA
+  // --------------------------------------------------------
+
+  media =
+    populateMediaMetadata(media);
+
+  info("populateMediaMetadata: PASS");
+
+  // --------------------------------------------------------
+  // CONVERT TO DATABASE ROW
+  // --------------------------------------------------------
+
+  const row =
+    mediaObjectToRow(media);
+
+  info("mediaObjectToRow: PASS");
+  info("Row columns: " + row.length);
+
+  info("==========================================");
+  info("SINGLE SYNC PIPELINE TEST PASSED");
+  info("==========================================");
+}
+
+
+
+
+
+
+function testFullSyncPipeline() {
+
+  info("==========================================");
+  info("FULL SYNC PIPELINE DRY RUN");
+  info("==========================================");
+
+  const folderId =
+    getSetting("Media Root Folder ID");
+
+  info("Root folder: " + folderId);
+
+  const driveFiles =
+    scanFolderDriveAPI(folderId);
+
+  info("Files found: " + driveFiles.length);
+
+  if (!driveFiles.length) {
+    throw new Error("No media files found.");
+  }
+
+  let passed = 0;
+  let failed = 0;
+
+  const failures = [];
+
+  driveFiles.forEach(function(file, index) {
+
+    try {
+
+      let media =
+        buildMediaObject(file);
+
+      media =
+        populateMediaMetadata(media);
+
+      if (
+        getSetting("Create Thumbnails") === true
+      ) {
+
+        media =
+          generateThumbnail(media);
+
+      }
+
+      const row =
+        mediaObjectToRow(media);
+
+      if (row.length !== 36) {
+
+        throw new Error(
+          "Expected 36 columns, got " +
+          row.length
+        );
+
+      }
+
+      passed++;
+
+      if ((index + 1) % 100 === 0) {
+
+        info(
+          "Processed: " +
+          (index + 1) +
+          " / " +
+          driveFiles.length
+        );
+
+      }
+
+    }
+
+    catch (err) {
+
+      failed++;
+
+      failures.push({
+        file: file.title || file.id,
+        id: file.id,
+        error: err.message
+      });
+
+    }
+
+  });
+
+  info("==========================================");
+  info("FULL PIPELINE DRY RUN COMPLETE");
+  info("==========================================");
+
+  info("Total : " + driveFiles.length);
+  info("Passed: " + passed);
+  info("Failed: " + failed);
+
+  if (failures.length) {
+
+    info("------------------------------------------");
+    info("FAILURES");
+    info("------------------------------------------");
+
+    failures.forEach(function(item) {
+
+      warning(
+        item.file +
+        " | " +
+        item.id +
+        " | " +
+        item.error
+      );
+
+    });
+
+  }
+
+  if (failed > 0) {
+
+    throw new Error(
+      "Full pipeline test failed: " +
+      failed +
+      " file(s)."
+    );
+
+  }
+
+  info("==========================================");
+  info("FULL SYNC PIPELINE TEST PASSED");
+  info("==========================================");
+
+}
