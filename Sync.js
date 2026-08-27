@@ -143,8 +143,42 @@ function sync() {
   );
 
 
-  const driveFiles =
+  const rawDriveFiles =
     scanFolderDriveAPI(folderId);
+
+
+  // ========================================================
+  // DEDUPLICATE SCANNED FILES
+  // ========================================================
+  //
+  // A Google Drive file can live under more than one parent
+  // folder (e.g. filed under both a year folder and a
+  // category folder). The recursive scanner walks every
+  // folder independently, so the same file can be returned
+  // more than once in a single scan.
+  //
+  // Without this step, a file with multiple parents would
+  // be queued and written as more than one row.
+  //
+  // ========================================================
+
+  const seenFileIds = {};
+  const driveFiles = [];
+  let duplicatesSkipped = 0;
+
+  rawDriveFiles.forEach(function(file) {
+
+    if (seenFileIds[file.id]) {
+
+      duplicatesSkipped++;
+      return;
+
+    }
+
+    seenFileIds[file.id] = true;
+    driveFiles.push(file);
+
+  });
 
 
   SYNC_STATS.scanned =
@@ -155,6 +189,16 @@ function sync() {
     "Files scanned: " +
     SYNC_STATS.scanned
   );
+
+
+  if (duplicatesSkipped > 0) {
+
+    info(
+      "Duplicate files skipped (multiple parent folders): " +
+      duplicatesSkipped
+    );
+
+  }
 
 
   // ========================================================
@@ -187,10 +231,68 @@ function sync() {
 
 
   // ========================================================
+  // TIME BUDGET
+  // ========================================================
+  //
+  // Apps Script kills long-running executions (around 6
+  // minutes on standard accounts). With a large batch of
+  // new files, a single sync can exceed that limit.
+  //
+  // Rather than let the platform kill the script mid-file
+  // (losing all unsaved progress), Sync tracks elapsed time
+  // and stops itself early, safely, with everything found
+  // so far already written to the sheet.
+  //
+  // Re-running Sync Media will pick up where this run left
+  // off, since already-added files are skipped via the
+  // existing-record check above.
+  //
+  // ========================================================
+
+  const TIME_BUDGET_MS = 4.5 * 60 * 1000;
+
+  const BATCH_FLUSH_SIZE = 25;
+
+  let stoppedEarly = false;
+
+
+  // ========================================================
   // PROCESS DRIVE FILES
   // ========================================================
 
-  driveFiles.forEach(function(file) {
+  for (let i = 0; i < driveFiles.length; i++) {
+
+    // ------------------------------------------------------
+    // Stop early if the time budget has been exceeded
+    // ------------------------------------------------------
+
+    const elapsedMs =
+      new Date().getTime() -
+      startTime.getTime();
+
+    if (elapsedMs > TIME_BUDGET_MS) {
+
+      stoppedEarly = true;
+
+      info(
+        "Time budget reached (" +
+        (elapsedMs / 1000).toFixed(0) +
+        "s). Stopping early to save progress."
+      );
+
+      info(
+        "Files remaining: " +
+        (driveFiles.length - i) +
+        ". Re-run Sync Media to continue."
+      );
+
+      break;
+
+    }
+
+
+    const file = driveFiles[i];
+
 
     try {
 
@@ -299,7 +401,7 @@ function sync() {
         }
 
 
-        return;
+        continue;
 
       }
 
@@ -371,6 +473,28 @@ function sync() {
         currentRecord
       );
 
+
+      // --------------------------------------------------
+      // Periodic flush
+      // --------------------------------------------------
+      //
+      // Write completed records to the sheet in small
+      // batches as we go, rather than holding everything
+      // in memory until the very end. This guarantees that
+      // if the script stops (time budget or a platform
+      // timeout), work already done is not lost.
+      //
+      // --------------------------------------------------
+
+      if (newRecords.length >= BATCH_FLUSH_SIZE) {
+
+        SYNC_STATS.added +=
+          addMediaBatch(newRecords);
+
+        newRecords.length = 0;
+
+      }
+
     }
 
     catch (err) {
@@ -387,25 +511,36 @@ function sync() {
 
     }
 
-  });
+  }
 
 
   // ========================================================
   // ADD NEW RECORDS
   // ========================================================
   //
-  // All new records are written to the database in one
-  // spreadsheet operation.
+  // Writes any records left over after the loop ends
+  // (fewer than a full batch, or the final partial batch
+  // before an early stop).
   //
   // ========================================================
 
   if (newRecords.length) {
 
-    SYNC_STATS.added =
+    SYNC_STATS.added +=
       addMediaBatch(newRecords);
 
   }
 
+
+  if (stoppedEarly) {
+
+    info(
+      "Sync stopped early on time budget. " +
+      "Run Sync Media again to continue importing " +
+      "the remaining files."
+    );
+
+  }
 
   // ========================================================
   // SYNC DURATION
