@@ -6,29 +6,37 @@
  *
  * Responsibilities
  * ----------------
- * • Synchronise Book Candidates into Final Book Possibilities
+ * • Synchronise Media Database images into Final Book
+ *   Possibilities
  * • Calculate editorial scores
  * • Carry important image metadata into the book list
  * • Preserve manual editorial fields
- * • Validate book candidate records
+ * • Provide book-list statistics
+ *
+ * IMPORTANT
+ * ----------------------------------------------------------
+ * There is NO "Book Candidate" filter.
+ *
+ * Every image in the Media Database is considered a possible
+ * book image.
+ *
+ * Hero Image and Final Book remain important editorial flags.
+ *
+ * Workflow
+ * --------
+ * Media Database
+ *       ↓
+ * Final Book Possibilities
+ *       ↓
+ * Editorial selection
+ *       ↓
+ * Book Final Layout
  *
  * Communicates with:
  * • Database.gs
  * • MediaObject.gs
  * • SelectionEngine.gs
  * • Config.gs
- *
- * Workflow
- * --------
- * Media Database
- *       ↓
- * Book Candidate
- *       ↓
- * Final Book Possibilities
- *       ↓
- * Second-pass editorial selection
- *       ↓
- * Book Final Layout
  *
  * ==========================================================
  */
@@ -42,8 +50,11 @@ const BOOKLIST = {
 
   /**
    * First data row in the worksheet.
+   *
+   * Row 1 contains headers.
    */
   START_ROW: 2,
+
 
   /**
    * Final Book Possibilities columns.
@@ -106,6 +117,7 @@ function getBookSheet() {
 
   }
 
+
   if (!BOOK_SHEET) {
 
     throw new Error(
@@ -113,6 +125,7 @@ function getBookSheet() {
     );
 
   }
+
 
   return BOOK_SHEET;
 
@@ -124,11 +137,15 @@ function getBookSheet() {
 // ==========================================================
 
 /**
- * Synchronises Book Candidate images from
- * the Media Database into Final Book Possibilities.
+ * Synchronises ALL images from the Media Database
+ * into Final Book Possibilities.
  *
- * Existing records are updated while manual
- * editorial fields are preserved.
+ * There is deliberately no Book Candidate filter.
+ *
+ * Every image is considered a possible book image.
+ *
+ * Existing records are updated while manual editorial
+ * fields are preserved.
  */
 function syncBookList() {
 
@@ -141,38 +158,43 @@ function syncBookList() {
     getAllMedia();
 
 
-  const bookSheet =
-    getBookSheet();
+  getBookSheet();
 
 
   let added = 0;
+
   let updated = 0;
 
 
-  // ------------------------------------------------------
-  // Skip row 0 — it contains the Media Database headers,
-  // not a media record.
-  // ------------------------------------------------------
+  // --------------------------------------------------------
+  // Skip row 0 — headers.
+  // --------------------------------------------------------
 
-  for (let i = 1; i < media.length; i++) {
+  for (
+    let i = 1;
+    i < media.length;
+    i++
+  ) {
 
 
     // ------------------------------------------------------
-    // getAllMedia() returns raw spreadsheet rows (arrays).
-    // BookList.gs works with Media Object properties
-    // (mediaRecord.bookCandidate, mediaRecord.id, etc.),
-    // so each row must be converted first.
+    // Convert spreadsheet row into Media Object.
     // ------------------------------------------------------
 
     const mediaRecord =
-      rowToMediaObject(media[i]);
+      rowToMediaObject(
+        media[i]
+      );
 
 
     // ------------------------------------------------------
-    // Only include Book Candidates
+    // Ignore rows without a File ID.
+    //
+    // This prevents blank/incomplete spreadsheet rows
+    // from being added to the book list.
     // ------------------------------------------------------
 
-    if (!isBookCandidate(mediaRecord)) {
+    if (!mediaRecord.id) {
 
       continue;
 
@@ -180,7 +202,7 @@ function syncBookList() {
 
 
     // ------------------------------------------------------
-    // Existing record?
+    // Look for an existing book record.
     // ------------------------------------------------------
 
     const existingRow =
@@ -219,33 +241,14 @@ function syncBookList() {
 
 
   info(
-    "Added : " + added
+    "Added : " +
+    added
   );
 
 
   info(
-    "Updated : " + updated
-  );
-
-}
-
-
-// ==========================================================
-// BOOK CANDIDATE CHECK
-// ==========================================================
-
-/**
- * Determines whether a Media Object
- * is marked as a Book Candidate.
- *
- * Handles both boolean and spreadsheet
- * string values.
- */
-function isBookCandidate(media) {
-
-  return (
-    media.bookCandidate === true ||
-    media.bookCandidate === "TRUE"
+    "Updated : " +
+    updated
   );
 
 }
@@ -334,8 +337,7 @@ function addBookRecord(media) {
     buildBookRow(media);
 
 
-  sheet
-    .appendRow(row);
+  sheet.appendRow(row);
 
 }
 
@@ -352,7 +354,10 @@ function addBookRecord(media) {
  *
  * Manual editorial fields are preserved.
  */
-function updateBookRecord(rowNumber, media) {
+function updateBookRecord(
+  rowNumber,
+  media
+) {
 
   const sheet =
     getBookSheet();
@@ -397,18 +402,47 @@ function updateBookRecord(rowNumber, media) {
 /**
  * Builds a worksheet row from a Media Object.
  *
- * Manual fields are preserved when an existing
- * row is supplied.
+ * Automatically updated fields:
+ * • Thumbnail
+ * • File ID
+ * • File Name
+ * • Year
+ * • Photographer
+ * • Category
+ * • Grade
+ * • Story Value
+ * • Hero
+ * • Editorial Score
+ * • Layout Suitability
+ * • Print Suitability
+ * • Aspect Ratio
+ * • Orientation
+ *
+ * Manual fields preserved:
+ * • Caption
+ * • Spread
+ * • Page
+ * • Status
+ * • Notes
  */
-function buildBookRow(media, existingRow) {
+function buildBookRow(
+  media,
+  existingRow
+) {
 
   existingRow =
     existingRow || [];
 
 
+  // --------------------------------------------------------
+  // Calculate editorial score.
+  // --------------------------------------------------------
+
   const score =
     calculateSelectionScore(
-      mediaObjectToSelectionRecord(media)
+      mediaObjectToSelectionRecord(
+        media
+      )
     );
 
 
@@ -434,14 +468,19 @@ function buildBookRow(media, existingRow) {
 
     media.storyValue || "",
 
-    media.hero || false,
+    media.hero === true,
 
 
     // ------------------------------------------------------
-    // Selection Engine
+    // Editorial Score
     // ------------------------------------------------------
 
     score,
+
+
+    // ------------------------------------------------------
+    // Suitability
+    // ------------------------------------------------------
 
     media.layoutSuitability || "",
 
@@ -481,8 +520,7 @@ function buildBookRow(media, existingRow) {
 
     preserveValue(
       existingRow,
-      BOOKLIST.COLUMNS.STATUS,
-      "Shortlisted"
+      BOOKLIST.COLUMNS.STATUS
     ),
 
     preserveValue(
@@ -505,6 +543,11 @@ function buildBookRow(media, existingRow) {
  *
  * SelectionEngine currently works from spreadsheet
  * column positions rather than Media Object properties.
+ *
+ * Book Candidate is intentionally NOT included.
+ *
+ * The Selection Engine considers the actual editorial
+ * qualities of the image instead.
  */
 function mediaObjectToSelectionRecord(media) {
 
@@ -531,10 +574,6 @@ function mediaObjectToSelectionRecord(media) {
     media.hero === true;
 
 
-  record[COL.BOOK_CANDIDATE - 1] =
-    media.bookCandidate === true;
-
-
   return record;
 
 }
@@ -552,8 +591,15 @@ function mediaObjectToSelectionRecord(media) {
  *
  * Returns an empty string when dimensions
  * are unavailable.
+ *
+ * @param {Number} width
+ * @param {Number} height
+ * @returns {Number|String}
  */
-function calculateAspectRatio(width, height) {
+function calculateAspectRatio(
+  width,
+  height
+) {
 
   const w =
     Number(width);
@@ -589,11 +635,14 @@ function calculateAspectRatio(width, height) {
  *
  * Used so synchronisation does not overwrite
  * editorial work.
+ *
+ * @param {Array} row
+ * @param {Number} column
+ * @returns {*}
  */
 function preserveValue(
   row,
-  column,
-  defaultValue
+  column
 ) {
 
   if (
@@ -607,7 +656,7 @@ function preserveValue(
   }
 
 
-  return defaultValue || "";
+  return "";
 
 }
 
@@ -618,7 +667,14 @@ function preserveValue(
 
 /**
  * Finds Book List records that are missing
- * important editorial information.
+ * their File ID.
+ *
+ * Grade and Story Value are NOT considered mandatory.
+ *
+ * An image can legitimately exist in the Final Book
+ * Possibilities list before it has been reviewed.
+ *
+ * @returns {Array}
  */
 function findIncompleteBookRecords() {
 
@@ -651,15 +707,17 @@ function findIncompleteBookRecords() {
       .getValues();
 
 
-  return records.filter(function(row) {
+  return records.filter(
+    function(row) {
 
-    return (
-      !row[BOOKLIST.COLUMNS.FILE_ID - 1] ||
-      !row[BOOKLIST.COLUMNS.GRADE - 1] ||
-      !row[BOOKLIST.COLUMNS.STORY_VALUE - 1]
-    );
+      return (
+        !row[
+          BOOKLIST.COLUMNS.FILE_ID - 1
+        ]
+      );
 
-  });
+    }
+  );
 
 }
 
@@ -671,6 +729,9 @@ function findIncompleteBookRecords() {
 /**
  * Returns basic statistics for
  * Final Book Possibilities.
+ *
+ * Status values are counted only if they
+ * actually exist in the worksheet.
  */
 function getBookListStatistics() {
 
@@ -693,7 +754,9 @@ function getBookListStatistics() {
 
       shortlisted: 0,
 
-      finalSelection: 0
+      finalSelection: 0,
+
+      heroImages: 0
 
     };
 
@@ -715,31 +778,61 @@ function getBookListStatistics() {
 
   let finalSelection = 0;
 
-
-  records.forEach(function(row) {
-
-    const status =
-      row[BOOKLIST.COLUMNS.STATUS - 1];
+  let heroImages = 0;
 
 
-    if (
-      status === "Shortlisted"
-    ) {
+  records.forEach(
+    function(row) {
 
-      shortlisted++;
+      const status =
+        row[
+          BOOKLIST.COLUMNS.STATUS - 1
+        ];
+
+
+      const hero =
+        row[
+          BOOKLIST.COLUMNS.HERO - 1
+        ];
+
+
+      // ----------------------------------------------------
+      // Status
+      // ----------------------------------------------------
+
+      if (
+        status === "Shortlisted"
+      ) {
+
+        shortlisted++;
+
+      }
+
+
+      if (
+        status === "Final Selection"
+      ) {
+
+        finalSelection++;
+
+      }
+
+
+      // ----------------------------------------------------
+      // Hero
+      // ----------------------------------------------------
+
+      if (
+        hero === true ||
+        hero === "TRUE"
+      ) {
+
+        heroImages++;
+
+      }
 
     }
-
-
-    if (
-      status === "Final Selection"
-    ) {
-
-      finalSelection++;
-
-    }
-
-  });
+  );
 
 
   return {
@@ -751,12 +844,14 @@ function getBookListStatistics() {
       shortlisted,
 
     finalSelection:
-      finalSelection
+      finalSelection,
+
+    heroImages:
+      heroImages
 
   };
 
 }
-
 
 // ==========================================================
 // DEVELOPMENT TESTS
@@ -779,108 +874,147 @@ function testBookSheet() {
 }
 
 
+// ==========================================================
+// ASPECT RATIO TEST
+// ==========================================================
+
 /**
  * Tests the aspect ratio calculation.
  */
 function testBookAspectRatio() {
 
-  Logger.log(
+  const result =
     calculateAspectRatio(
       4032,
       3024
-    )
+    );
+
+
+  Logger.log(
+    "4032 × 3024 aspect ratio: " +
+    result
   );
 
 }
 
+
+// ==========================================================
+// BOOK LIST SYNC TEST
+// ==========================================================
+
 /**
- * ==========================================================
- * TEST: BOOK CANDIDATE SYNC
- * ----------------------------------------------------------
- * Verifies that Book Candidates in the Media Database are
- * correctly identified before syncBookList() runs.
+ * Read-only test that counts Media Database records
+ * that are eligible to be synchronised.
  *
- * This test is completely read-only. It does NOT call
- * syncBookList() or modify Final Book Image Possibilities.
+ * Since there is no Book Candidate filter anymore,
+ * every valid media record is eligible.
  *
- * Use this to confirm the fix to syncBookList() before
- * running it against real data.
- * ==========================================================
+ * This test does NOT modify the spreadsheet.
  */
-
-function testBookCandidateDetection() {
+function testBookListSourceRecords() {
 
   info("==========================================");
-  info("BOOK CANDIDATE DETECTION TEST");
+
+  info(
+    "BOOK LIST SOURCE RECORD TEST"
+  );
+
   info("==========================================");
+
 
   const media =
     getAllMedia();
 
-  let candidateCount = 0;
 
-  // Skip row 0 — headers, not a media record.
-  for (let i = 1; i < media.length; i++) {
+  let validRecords = 0;
+
+  let missingFileId = 0;
+
+
+  // --------------------------------------------------------
+  // Skip row 0 — headers.
+  // --------------------------------------------------------
+
+  for (
+    let i = 1;
+    i < media.length;
+    i++
+  ) {
 
     const mediaRecord =
-      rowToMediaObject(media[i]);
-
-    if (isBookCandidate(mediaRecord)) {
-
-      candidateCount++;
-
-      info(
-        "Candidate: " +
-        mediaRecord.name +
-        " (File ID: " +
-        mediaRecord.id +
-        ")"
+      rowToMediaObject(
+        media[i]
       );
+
+
+    if (
+      mediaRecord.id
+    ) {
+
+      validRecords++;
+
+    }
+
+    else {
+
+      missingFileId++;
 
     }
 
   }
 
+
   info("------------------------------------------");
+
 
   info(
     "Media Database records: " +
     (media.length - 1)
   );
 
+
   info(
-    "Book Candidates found: " +
-    candidateCount
+    "Valid records available for Book List: " +
+    validRecords
   );
+
+
+  info(
+    "Records missing File ID: " +
+    missingFileId
+  );
+
 
   info("------------------------------------------");
 
-  if (candidateCount === 0) {
 
-    info(
-      "No Book Candidates found. This is expected if " +
-      "no images have been marked as Book Candidate yet."
-    );
+  info(
+    "RESULT: All valid Media Database images " +
+    "are treated as possible book images."
+  );
 
-  } else {
-
-    info(
-      "RESULT: Book Candidate detection is working. " +
-      "Run syncBookList() to populate Final Book Image " +
-      "Possibilities with these records."
-    );
-
-  }
 
   info("==========================================");
-  info("BOOK CANDIDATE DETECTION TEST COMPLETE");
+
+  info(
+    "BOOK LIST SOURCE RECORD TEST COMPLETE"
+  );
+
   info("==========================================");
 
 }
 
 
+// ==========================================================
+// SELECTION SCORE TEST
+// ==========================================================
+
 /**
  * Tests the Selection Engine connection.
+ *
+ * Uses the first valid media record.
+ *
+ * This test is completely read-only.
  */
 function testBookSelectionScore() {
 
@@ -889,7 +1023,7 @@ function testBookSelectionScore() {
 
 
   if (
-    !media.length
+    media.length <= 1
   ) {
 
     Logger.log(
@@ -901,16 +1035,43 @@ function testBookSelectionScore() {
   }
 
 
-  const candidate =
-    media.find(
-      isBookCandidate
-    );
+  let testRecord = null;
 
 
-  if (!candidate) {
+  // --------------------------------------------------------
+  // Find first valid media record.
+  // --------------------------------------------------------
+
+  for (
+    let i = 1;
+    i < media.length;
+    i++
+  ) {
+
+    const mediaRecord =
+      rowToMediaObject(
+        media[i]
+      );
+
+
+    if (
+      mediaRecord.id
+    ) {
+
+      testRecord =
+        mediaRecord;
+
+      break;
+
+    }
+
+  }
+
+
+  if (!testRecord) {
 
     Logger.log(
-      "No Book Candidate found."
+      "No valid media record found."
     );
 
     return;
@@ -920,19 +1081,90 @@ function testBookSelectionScore() {
 
   const record =
     mediaObjectToSelectionRecord(
-      candidate
+      testRecord
+    );
+
+
+  const score =
+    calculateSelectionScore(
+      record
     );
 
 
   Logger.log(
     "File: " +
-    candidate.name
+    testRecord.name
   );
 
 
   Logger.log(
     "Editorial Score: " +
-    calculateSelectionScore(record)
+    score
   );
+
+}
+
+
+// ==========================================================
+// BOOK LIST STATISTICS TEST
+// ==========================================================
+
+/**
+ * Tests the Book List statistics.
+ *
+ * This test is completely read-only.
+ */
+function testBookListStatistics() {
+
+  Logger.log("==========================================");
+
+  Logger.log(
+    "BOOK LIST STATISTICS TEST"
+  );
+
+  Logger.log("==========================================");
+
+
+  const statistics =
+    getBookListStatistics();
+
+
+  Logger.log(
+    "Total: " +
+    statistics.total
+  );
+
+
+  Logger.log(
+    "Shortlisted: " +
+    statistics.shortlisted
+  );
+
+
+  Logger.log(
+    "Final Selection: " +
+    statistics.finalSelection
+  );
+
+
+  Logger.log(
+    "Hero Images: " +
+    statistics.heroImages
+  );
+
+
+  Logger.log(
+    "Final Book: " +
+    statistics.finalBook
+  );
+
+
+  Logger.log("==========================================");
+
+  Logger.log(
+    "BOOK LIST STATISTICS TEST COMPLETE"
+  );
+
+  Logger.log("==========================================");
 
 }

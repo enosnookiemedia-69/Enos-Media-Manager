@@ -4,123 +4,57 @@
  * ----------------------------------------------------------
  * Controls the Image Reviewer workflow.
  *
- * Responsibilities
- * ----------------
- * • Manage current review position
- * • Load image records for review
- * • Save creative review decisions
- * • Track reviewer progress
+ * Current workflow:
  *
- * Communicates with:
- * • ReviewUI.gs
- * • ReviewHTML.html
- * • Database.gs (future)
- * • Config.gs
+ * Media Database
+ *       ↓
+ *     Review
+ *       ↓
+ *    Reviewed
+ *       ↓
+ *   Hero / Final Book
+ *
+ * The reviewer does NOT control:
+ * • Book Candidate
+ * • Selection Stage
+ * • Book List synchronisation
+ * • Spread
+ * • Page
+ *
  * ==========================================================
  */
+
 
 // ==========================================================
 // REVIEWER SETTINGS
 // ==========================================================
 
-
 const REVIEWER = {
 
-  /**
-   * First data row in Media Database.
-   *
-   * Row 1 contains headers.
-   */
   START_ROW: 2,
 
-  /**
-   * Stores the user's current review position.
-   */
   LAST_ROW_PROPERTY:
     "REVIEWER_LAST_ROW",
 
-
-  /**
-   * Stores total reviewed images.
-   *
-   * Future use:
-   * - Progress display
-   * - Review dashboard
-   */
-  REVIEW_COUNT_PROPERTY:
-    "REVIEWER_COUNT",
-
-
-  /**
-   * Stores last review timestamp.
-   */
   LAST_REVIEW_PROPERTY:
     "REVIEWER_LAST_DATE"
 
 };
-
-// ==========================================================
-// REVIEWER CACHE
-// ==========================================================
-
-
-const REVIEW_CACHE = {
-
-  CURRENT_IMAGE: null
-
-};
-
-// ==========================================================
-// MEDIA DATABASE COLUMN MAP
-// ==========================================================
-//
-// Uses CONFIG.COL as the single source of truth.
-//
-// CONFIG.COL uses spreadsheet columns:
-// A = 1
-// B = 2
-//
-// Arrays from getValues() use:
-// A = 0
-// B = 1
-//
-// Therefore we subtract 1.
-//
-
-const REVIEW_COLUMNS = {};
-
-
-Object.keys(COL).forEach(function(key) {
-
-  REVIEW_COLUMNS[key] =
-    COL[key] - 1;
-
-});
 
 
 // ==========================================================
 // REVIEWER POSITION
 // ==========================================================
 
-
-/**
- * Returns the current review row.
- *
- * If no review has started,
- * returns the first media record.
- */
 function getLastReviewedRow() {
-
 
   const properties =
     PropertiesService.getUserProperties();
-
 
   const lastRow =
     properties.getProperty(
       REVIEWER.LAST_ROW_PROPERTY
     );
-
 
   if (!lastRow) {
 
@@ -128,27 +62,35 @@ function getLastReviewedRow() {
 
   }
 
-  return Number(lastRow);
+  const parsedRow =
+    Number(lastRow);
+
+  if (
+    !Number.isFinite(parsedRow) ||
+    parsedRow < REVIEWER.START_ROW
+  ) {
+
+    return REVIEWER.START_ROW;
+
+  }
+
+  return parsedRow;
+
 }
 
 
-/**
- * Saves the current reviewer position.
- *
- * Also records:
- * - review timestamp
- * - reviewed image count
- */
-function saveReviewerPosition(rowNumber) {
+// ==========================================================
+// SAVE REVIEWER POSITION
+// ==========================================================
 
+function saveReviewerPosition(rowNumber) {
 
   const properties =
     PropertiesService.getUserProperties();
 
-
   properties.setProperty(
     REVIEWER.LAST_ROW_PROPERTY,
-    rowNumber
+    String(rowNumber)
   );
 
   properties.setProperty(
@@ -159,24 +101,10 @@ function saveReviewerPosition(rowNumber) {
 }
 
 
-/**
- * Returns the number of images reviewed.
- *
- * Calculated from current position.
- */
 // ==========================================================
 // REVIEW COUNT
 // ==========================================================
 
-/**
- * Returns the actual number of images that have been reviewed.
- *
- * Review Status in the Media Database is the authoritative
- * source for this value.
- *
- * This is intentionally separate from the current reviewer
- * position because the reviewer can skip images.
- */
 function getReviewCount() {
 
   const media =
@@ -184,7 +112,6 @@ function getReviewCount() {
 
   let reviewedCount = 0;
 
-  // Skip row 1 because it contains the headers.
   for (
     let i = 1;
     i < media.length;
@@ -195,7 +122,8 @@ function getReviewCount() {
       media[i][COL.REVIEW_STATUS - 1];
 
     if (
-      reviewStatus === "Reviewed"
+      String(reviewStatus || "").trim() ===
+      "Reviewed"
     ) {
 
       reviewedCount++;
@@ -213,24 +141,10 @@ function getReviewCount() {
 // REVIEW PROGRESS
 // ==========================================================
 
-/**
- * Returns reviewer progress information.
- *
- * Current row:
- *   The image currently being viewed.
- *
- * Reviewed:
- *   The actual number of images marked "Reviewed"
- *   in the Media Database.
- *
- * Last review:
- *   The timestamp stored in User Properties.
- */
 function getReviewProgress() {
 
   const properties =
-    PropertiesService
-      .getUserProperties();
+    PropertiesService.getUserProperties();
 
   return {
 
@@ -243,11 +157,80 @@ function getReviewProgress() {
     lastReview:
       properties.getProperty(
         REVIEWER.LAST_REVIEW_PROPERTY
-      )
+      ) || ""
 
   };
 
 }
+
+
+// ==========================================================
+// SAFE VALUE
+// ==========================================================
+//
+// Google Apps Script's google.script.run transport is much
+// happier when the returned object contains only simple,
+// JSON-safe values.
+//
+// In particular, do not return Date objects directly.
+// Convert them to strings first.
+// ==========================================================
+
+function reviewSafeValue(value) {
+
+  if (
+    value === null ||
+    value === undefined
+  ) {
+
+    return "";
+
+  }
+
+  if (
+    value instanceof Date
+  ) {
+
+    return value.toISOString();
+
+  }
+
+  if (
+    typeof value === "boolean"
+  ) {
+
+    return value;
+
+  }
+
+  if (
+    typeof value === "number"
+  ) {
+
+    return Number.isFinite(value)
+      ? value
+      : "";
+
+  }
+
+  return String(value);
+
+}
+
+
+// ==========================================================
+// SAFE BOOLEAN
+// ==========================================================
+
+function reviewBoolean(value) {
+
+  return (
+    value === true ||
+    String(value).toUpperCase() === "TRUE"
+  );
+
+}
+
 
 // ==========================================================
 // IMAGE LOADING
@@ -256,206 +239,428 @@ function getReviewProgress() {
 /**
  * Gets the current image for review.
  *
- * Converts spreadsheet row data into
- * a reviewer object for the HTML interface.
+ * IMPORTANT:
+ * The returned object contains only primitive JSON-safe
+ * values so it can safely cross google.script.run.
+ *
+ * The image is loaded directly from Google Drive and
+ * converted to a Base64 data URL. This avoids relying on
+ * the Google Drive thumbnail endpoint inside the HTML
+ * sandbox.
  */
 function getCurrentReviewImage() {
 
+  const sheet =
+    getMediaSheet();
 
-  const row =
+
+  if (!sheet) {
+
+    throw new Error(
+      "Media Database sheet not found."
+    );
+
+  }
+
+
+  const lastRow =
+    sheet.getLastRow();
+
+
+  if (
+    lastRow < REVIEWER.START_ROW
+  ) {
+
+    throw new Error(
+      "Media Database contains no image records."
+    );
+
+  }
+
+
+  let row =
     getLastReviewedRow();
 
 
+  // --------------------------------------------------------
+  // Clamp the saved position to the actual database.
+  // --------------------------------------------------------
+
+  if (
+    row < REVIEWER.START_ROW
+  ) {
+
+    row =
+      REVIEWER.START_ROW;
+
+  }
+
+
+  if (
+    row > lastRow
+  ) {
+
+    row =
+      lastRow;
+
+
+    saveReviewerPosition(
+      row
+    );
+
+  }
+
+
   const record =
-    getMediaRecordByRow(row);
+    getMediaRecordByRow(
+      row
+    );
 
 
-  const sheet =
-    SpreadsheetApp
-      .getActive()
-      .getSheetByName(
-        CONFIG.SHEETS.MEDIA
+  if (!record) {
+
+    throw new Error(
+      "No media record was returned for row " +
+      row
+    );
+
+  }
+
+
+  const fileId =
+    reviewSafeValue(
+      record[COL.FILE_ID - 1]
+    );
+
+
+  const fileName =
+    reviewSafeValue(
+      record[COL.NAME - 1]
+    );
+
+
+  if (!fileId) {
+
+    throw new Error(
+      "Image record has no File ID. Row: " +
+      row +
+      " | File: " +
+      fileName
+    );
+
+  }
+
+
+  // --------------------------------------------------------
+  // LOAD IMAGE DIRECTLY FROM GOOGLE DRIVE
+  // --------------------------------------------------------
+  //
+  // Instead of returning:
+  //
+  // https://drive.google.com/thumbnail?id=...
+  //
+  // we load the Drive file here and return a Base64
+  // data URL that the HTML reviewer can display directly.
+  //
+  // --------------------------------------------------------
+
+  let imageUrl = "";
+
+
+  try {
+
+    const file =
+      DriveApp.getFileById(
+        fileId
       );
 
-  return {
 
-    row: row,
+    const blob =
+      file.getBlob();
+
+
+    const contentType =
+      blob.getContentType();
+
+
+    const base64 =
+      Utilities
+        .base64Encode(
+          blob.getBytes()
+        );
+
+
+    imageUrl =
+      "data:" +
+      contentType +
+      ";base64," +
+      base64;
+
+  }
+
+  catch (error) {
+
+    throw new Error(
+      "Could not load image from Google Drive. " +
+      "Row: " +
+      row +
+      " | File: " +
+      fileName +
+      " | " +
+      error.message
+    );
+
+  }
+
+
+  // --------------------------------------------------------
+  // Build the object using ONLY JSON-safe values.
+  // --------------------------------------------------------
+
+  const result = {
+
+    row:
+      row,
+
 
     total:
-      sheet.getLastRow() - 1,
+      lastRow -
+      REVIEWER.START_ROW +
+      1,
 
 
     fileName:
-      record[REVIEW_COLUMNS.FILE_NAME],
+      fileName,
 
 
     imageUrl:
-      "https://drive.google.com/thumbnail?id=" +
-      record[REVIEW_COLUMNS.FILE_ID] +
-      "&sz=w1200",
+      imageUrl,
 
 
     metadata: {
 
-
       year:
-        record[REVIEW_COLUMNS.YEAR],
+        reviewSafeValue(
+          record[COL.YEAR - 1]
+        ),
 
 
       photographer:
-        record[REVIEW_COLUMNS.PHOTOGRAPHER],
+        reviewSafeValue(
+          record[COL.PHOTOGRAPHER - 1]
+        ),
 
 
       camera:
-        record[REVIEW_COLUMNS.CAMERA_MODEL],
+        reviewSafeValue(
+          record[COL.CAMERA_MODEL - 1]
+        ),
 
 
       category:
-        record[REVIEW_COLUMNS.CATEGORY] ||
-        "Unassigned"
+        reviewSafeValue(
+          record[COL.CATEGORY - 1]
+        )
 
     },
 
 
     creative: {
 
-
       layoutSuitability:
-        record[REVIEW_COLUMNS.LAYOUT_SUITABILITY] ||
-        "",
+        reviewSafeValue(
+          record[COL.LAYOUT_SUITABILITY - 1]
+        ),
+
 
       printSuitability:
-        record[REVIEW_COLUMNS.PRINT_SUITABILITY] ||
-        "",
+        reviewSafeValue(
+          record[COL.PRINT_SUITABILITY - 1]
+        ),
+
 
       grade:
-        record[REVIEW_COLUMNS.GRADE] ||
-        "",
+        reviewSafeValue(
+          record[COL.GRADE - 1]
+        ),
+
 
       storyValue:
-        record[REVIEW_COLUMNS.STORY_VALUE] ||
-        "",
+        reviewSafeValue(
+          record[COL.STORY_VALUE - 1]
+        ),
+
 
       heroImage:
-        record[REVIEW_COLUMNS.HERO_IMAGE] ||
-        false,
+        reviewBoolean(
+          record[COL.HERO_IMAGE - 1]
+        ),
 
-      bookCandidate:
-        record[REVIEW_COLUMNS.BOOK_CANDIDATE] ||
-        false,
 
       finalBook:
-        record[REVIEW_COLUMNS.FINAL_BOOK] ||
-        false,
+        reviewBoolean(
+          record[COL.FINAL_BOOK - 1]
+        ),
 
-      selectionStage:
-        record[REVIEW_COLUMNS.SELECTION_STAGE] ||
-        "",
 
       caption:
-        record[REVIEW_COLUMNS.CAPTION] ||
-        "",
+        reviewSafeValue(
+          record[COL.CAPTION - 1]
+        ),
+
 
       spread:
-        record[REVIEW_COLUMNS.SPREAD] ||
-        "",
+        reviewSafeValue(
+          record[COL.SPREAD - 1]
+        ),
+
 
       page:
-        record[REVIEW_COLUMNS.PAGE] ||
-        "",
+        reviewSafeValue(
+          record[COL.PAGE - 1]
+        ),
+
 
       notes:
-        record[REVIEW_COLUMNS.NOTES] ||
-        "",
+        reviewSafeValue(
+          record[COL.NOTES - 1]
+        ),
+
 
       reviewDate:
-        record[REVIEW_COLUMNS.REVIEW_DATE] ||
-        "",
+        reviewSafeValue(
+          record[COL.REVIEW_DATE - 1]
+        ),
 
 
       reviewStatus:
-        record[REVIEW_COLUMNS.REVIEW_STATUS] ||
-        "Not Reviewed"
+        reviewSafeValue(
+          record[COL.REVIEW_STATUS - 1]
+        )
 
     }
+
   };
 
+
+  Logger.log(
+    "Reviewer loaded row " +
+    row +
+    ": " +
+    fileName
+  );
+
+
+  Logger.log(
+    "File ID: " +
+    fileId
+  );
+
+
+  Logger.log(
+    "Image loaded from Drive successfully."
+  );
+
+
+  Logger.log(
+    "Image MIME type: " +
+    imageUrl.substring(
+      0,
+      imageUrl.indexOf(";")
+    )
+  );
+
+
+  return result;
+
 }
+
+
+// ==========================================================
+// THUMBNAIL URL
+// ==========================================================
+
+function buildThumbnailUrl(fileId) {
+
+  if (!fileId) {
+
+    return "";
+
+  }
+
+
+  return (
+    "https://drive.google.com/thumbnail?id=" +
+    encodeURIComponent(fileId) +
+    "&sz=w1600"
+  );
+
+}
+
 
 // ==========================================================
 // MEDIA DATABASE LOOKUP
 // ==========================================================
 
-/**
- * Gets one media record by row number.
- *
- * Temporary connection to Media Database.
- */
 function getMediaRecordByRow(rowNumber) {
 
-
   const sheet =
-    SpreadsheetApp
-      .getActive()
-      .getSheetByName(
-        CONFIG.SHEETS.MEDIA
-      );
-
+    getMediaSheet();
 
   if (!sheet) {
 
     throw new Error(
       "Media Database sheet not found."
     );
+
   }
 
+  const lastRow =
+    sheet.getLastRow();
 
   if (
-    rowNumber > sheet.getLastRow()
+    rowNumber < REVIEWER.START_ROW ||
+    rowNumber > lastRow
   ) {
 
     throw new Error(
-      "No media record exists for row " + rowNumber
+      "No media record exists for row " +
+      rowNumber
     );
+
   }
 
-
-  const values =
-    sheet
-      .getRange(
-        rowNumber,
-        1,
-        1,
-        sheet.getLastColumn()
-      )
-      .getValues()[0];
-
-  return values;
+  return sheet
+    .getRange(
+      rowNumber,
+      1,
+      1,
+      sheet.getLastColumn()
+    )
+    .getValues()[0];
 
 }
+
 
 // ==========================================================
 // SAVE REVIEW
 // ==========================================================
 
-/**
- * Saves creative review information.
- *
- * Updates only editable review columns.
- */
 function saveReview(reviewData) {
 
+  if (!reviewData) {
+
+    throw new Error(
+      "No review data was supplied."
+    );
+
+  }
 
   const currentRow =
     getLastReviewedRow();
 
   const sheet =
-    SpreadsheetApp
-      .getActive()
-      .getSheetByName(
-        CONFIG.SHEETS.MEDIA
-      );
-
+    getMediaSheet();
 
   if (!sheet) {
 
@@ -465,186 +670,214 @@ function saveReview(reviewData) {
 
   }
 
-  console.log(
-    "Saving review for row:",
-    currentRow
-  );
+  const lastRow =
+    sheet.getLastRow();
 
+  if (
+    currentRow < REVIEWER.START_ROW ||
+    currentRow > lastRow
+  ) {
 
-  console.log(
-    reviewData
-  );
+    throw new Error(
+      "Cannot save review. Invalid Media Database row: " +
+      currentRow
+    );
 
-  const updates = {};
+  }
 
+  // --------------------------------------------------------
+  // Helper to write a single database cell.
+  //
+  // This makes the reviewer extremely explicit about which
+  // fields it owns and prevents accidental overwrites.
+  // --------------------------------------------------------
 
-  updates[COL.LAYOUT_SUITABILITY] =
-    reviewData.layoutSuitability || "";
-
-
-  updates[COL.PRINT_SUITABILITY] =
-    reviewData.printSuitability || "";
-
-
-  updates[COL.CATEGORY] =
-    reviewData.category || "";
-
-
-  updates[COL.GRADE] =
-    reviewData.grade || "";
-
-
-  updates[COL.STORY_VALUE] =
-    reviewData.storyValue || "";
-
-
-  updates[COL.HERO_IMAGE] =
-    reviewData.heroImage === true;
-
-
-  updates[COL.BOOK_CANDIDATE] =
-    reviewData.bookCandidate === true;
-
-
-  updates[COL.FINAL_BOOK] =
-    reviewData.finalBook === true;
-
-
-  updates[COL.SELECTION_STAGE] =
-    reviewData.selectionStage || "";
-
-
-  updates[COL.CAPTION] =
-    reviewData.caption || "";
-
-
-  updates[COL.SPREAD] =
-    reviewData.spread || "";
-
-
-  updates[COL.PAGE] =
-    reviewData.page || "";
-
-
-  updates[COL.NOTES] =
-    reviewData.notes || "";
-
-
-  updates[COL.REVIEW_DATE] =
-    new Date();
-
-
-  updates[COL.REVIEW_STATUS] =
-    "Reviewed";
-
-
-  // ======================================================
-// WRITE VALUES
-// ======================================================
-
-Object.keys(updates)
-  .forEach(function(column){
+  function setReviewField(column, value) {
 
     sheet
       .getRange(
         currentRow,
-        Number(column),
-        1,
-        1
+        column
       )
-      .setValue(
-        updates[column]
+      .setValue(value);
+
+  }
+
+  // --------------------------------------------------------
+  // CREATIVE REVIEW
+  // --------------------------------------------------------
+
+  setReviewField(
+    COL.LAYOUT_SUITABILITY,
+    reviewData.layoutSuitability || ""
+  );
+
+  setReviewField(
+    COL.PRINT_SUITABILITY,
+    reviewData.printSuitability || ""
+  );
+
+  setReviewField(
+    COL.CATEGORY,
+    reviewData.category || ""
+  );
+
+  setReviewField(
+    COL.GRADE,
+    reviewData.grade || ""
+  );
+
+  setReviewField(
+    COL.STORY_VALUE,
+    reviewData.storyValue || ""
+  );
+
+  // --------------------------------------------------------
+  // HERO
+  // --------------------------------------------------------
+
+  setReviewField(
+    COL.HERO_IMAGE,
+    reviewData.heroImage === true
+  );
+
+  // --------------------------------------------------------
+  // FINAL BOOK
+  // --------------------------------------------------------
+
+  setReviewField(
+    COL.FINAL_BOOK,
+    reviewData.finalBook === true
+  );
+
+  // --------------------------------------------------------
+  // CAPTION
+  // --------------------------------------------------------
+
+  setReviewField(
+    COL.CAPTION,
+    reviewData.caption || ""
+  );
+
+  // --------------------------------------------------------
+  // NOTES
+  // --------------------------------------------------------
+
+  setReviewField(
+    COL.NOTES,
+    reviewData.notes || ""
+  );
+
+  // --------------------------------------------------------
+  // REVIEW TRACKING
+  // --------------------------------------------------------
+
+  setReviewField(
+    COL.REVIEW_DATE,
+    new Date()
+  );
+
+  setReviewField(
+    COL.REVIEW_STATUS,
+    "Reviewed"
+  );
+
+  // --------------------------------------------------------
+  // EDITORIAL SCORE
+  // --------------------------------------------------------
+
+  const updatedRecord =
+    getMediaRecordByRow(
+      currentRow
+    );
+
+  try {
+
+    const score =
+      calculateSelectionScore(
+        updatedRecord
       );
 
-  });
+    Logger.log(
+      "Editorial Score: " +
+      score
+    );
 
+  }
 
+  catch (error) {
 
+    Logger.log(
+      "Editorial score could not be calculated: " +
+      error.message
+    );
 
-// ======================================================
-// CALCULATE EDITORIAL SCORE
-// ======================================================
+  }
 
-const updatedRecord =
-  getMediaRecordByRow(currentRow);
+  // --------------------------------------------------------
+  // MOVE TO NEXT IMAGE
+  // --------------------------------------------------------
 
-const score =
-  calculateSelectionScore(
-    updatedRecord
+  const nextRow =
+    Math.min(
+      currentRow + 1,
+      lastRow
+    );
+
+  saveReviewerPosition(
+    nextRow
   );
 
-Logger.log(
-  "Editorial Score: " + score
-);
+  return {
 
+    success:
+      true,
 
-// ======================================================
-// SYNCHRONISE BOOK CANDIDATE
-// ======================================================
-//
-// If the image has been marked as a Book Candidate,
-// synchronise it into Final Book Possibilities.
-//
+    message:
+      "Review saved",
 
-if (
-  updatedRecord[COL.BOOK_CANDIDATE - 1] === true
-) {
+    currentRow:
+      currentRow,
 
-  Logger.log(
-    "Book Candidate: TRUE"
-  );
+    nextRow:
+      nextRow
 
-  syncBookList();
-
-} else {
-
-  Logger.log(
-    "Book Candidate: FALSE"
-  );
-
-}
-
-// ======================================================
-// MOVE TO NEXT IMAGE
-// ======================================================
-
-saveReviewerPosition(
-  currentRow + 1
-);
-
-return {
-
-  success:
-    true,
-
-  message:
-    "Review saved",
-
-  nextRow:
-    currentRow + 1
-
-};
+  };
 
 }
 
 
-
 // ==========================================================
-// NAVIGATION
+// NAVIGATION — NEXT
 // ==========================================================
-
-/**
- * Moves to next image.
- */
 
 function nextReviewImage() {
 
+  const sheet =
+    getMediaSheet();
+
+  if (!sheet) {
+
+    throw new Error(
+      "Media Database sheet not found."
+    );
+
+  }
+
+  const lastRow =
+    sheet.getLastRow();
 
   const currentRow =
     getLastReviewedRow();
 
+  const nextRow =
+    Math.min(
+      currentRow + 1,
+      lastRow
+    );
+
   saveReviewerPosition(
-    currentRow + 1
+    nextRow
   );
 
   return getCurrentReviewImage();
@@ -652,57 +885,62 @@ function nextReviewImage() {
 }
 
 
-/**
- * Moves to previous image.
- */
+// ==========================================================
+// NAVIGATION — PREVIOUS
+// ==========================================================
 
 function previousReviewImage() {
 
   const currentRow =
     getLastReviewedRow();
 
-  if (
-    currentRow > REVIEWER.START_ROW
-  ) {
-
-    saveReviewerPosition(
+  const previousRow =
+    Math.max(
+      REVIEWER.START_ROW,
       currentRow - 1
     );
-  }
+
+  saveReviewerPosition(
+    previousRow
+  );
 
   return getCurrentReviewImage();
+
 }
+
 
 // ==========================================================
 // RESET
 // ==========================================================
 
-/**
- * Resets reviewer progress.
- *
- * Useful during testing.
- */
 function resetReviewerPosition() {
 
-  PropertiesService
-    .getUserProperties()
-    .deleteProperty(
-      REVIEWER.LAST_ROW_PROPERTY
-    );
+  const properties =
+    PropertiesService.getUserProperties();
 
+  properties.deleteProperty(
+    REVIEWER.LAST_ROW_PROPERTY
+  );
+
+  properties.deleteProperty(
+    REVIEWER.LAST_REVIEW_PROPERTY
+  );
+
+  Logger.log(
+    "Reviewer position reset."
+  );
 
 }
 
 
-/**
- * Checks the current reviewer position.
- *
- * Used during development testing.
- */
+// ==========================================================
+// DEBUG
+// ==========================================================
 
 function checkReviewerPosition() {
 
   Logger.log(
+    "Current reviewer row: " +
     getLastReviewedRow()
   );
 
@@ -710,30 +948,29 @@ function checkReviewerPosition() {
 
 
 // ==========================================================
-// DEBUG TOOLS
+// DEBUG CURRENT ROW
 // ==========================================================
 
-
-/**
- * Shows the values of the current review row.
- *
- * Used to confirm column positions.
- */
 function debugCurrentReviewRow() {
-
 
   const row =
     getLastReviewedRow();
 
-
   const record =
     getMediaRecordByRow(row);
 
-
   Logger.log(
-    "Review Row: " + row
+    "=========================================="
   );
 
+  Logger.log(
+    "REVIEW ROW: " +
+    row
+  );
+
+  Logger.log(
+    "=========================================="
+  );
 
   for (
     let i = 0;
@@ -741,9 +978,11 @@ function debugCurrentReviewRow() {
     i++
   ) {
 
-
     Logger.log(
-      i + " = " + record[i]
+      "Column " +
+      (i + 1) +
+      " = " +
+      record[i]
     );
 
   }
@@ -752,681 +991,91 @@ function debugCurrentReviewRow() {
 
 
 // ==========================================================
-// TEST FUNCTIONS
+// TEST — REVIEW DATA PAYLOAD
+// ==========================================================
+//
+// THIS IS THE IMPORTANT TEST.
+//
+// Run this from Apps Script before opening the reviewer.
+// It confirms that getCurrentReviewImage() actually returns
+// the object expected by ReviewHTML.html.
 // ==========================================================
 
-/**
- * Tests the reviewer progress system.
- *
- * This test is completely read-only.
- *
- * Compares:
- * • Current reviewer position
- * • Calculated reviewer count
- * • Actual Review Status records
- * • Last review timestamp
- */
-function testReviewProgress() {
-
-  Logger.log("==========================================");
-  Logger.log("REVIEW PROGRESS TEST");
-  Logger.log("==========================================");
-
-  // --------------------------------------------------------
-  // Reviewer position
-  // --------------------------------------------------------
-
-  const currentRow =
-    getLastReviewedRow();
-
-  const reviewCount =
-    getReviewCount();
-
-  const progress =
-    getReviewProgress();
+function testCurrentReviewImage() {
 
   Logger.log(
-    "Reviewer start row: " +
-    REVIEWER.START_ROW
+    "=========================================="
   );
 
   Logger.log(
-    "Current reviewer row: " +
-    currentRow
+    "CURRENT REVIEW IMAGE TEST"
   );
 
   Logger.log(
-    "Calculated review count: " +
-    reviewCount
+    "=========================================="
   );
 
-  Logger.log(
-    "Progress reviewed value: " +
-    progress.reviewed
-  );
+  try {
 
-  Logger.log(
-    "Last review timestamp: " +
-    progress.lastReview
-  );
-
-  Logger.log("------------------------------------------");
-
-  // --------------------------------------------------------
-  // Actual database review status
-  // --------------------------------------------------------
-
-  const media =
-    getAllMedia();
-
-  let actualReviewed = 0;
-
-  for (
-    let i = 1;
-    i < media.length;
-    i++
-  ) {
-
-    const status =
-      media[i][COL.REVIEW_STATUS - 1];
-
-    if (
-      status === "Reviewed"
-    ) {
-
-      actualReviewed++;
-
-    }
-
-  }
-
-  Logger.log(
-    "Media database records: " +
-    (media.length - 1)
-  );
-
-  Logger.log(
-    "Actual 'Reviewed' records: " +
-    actualReviewed
-  );
-
-  Logger.log("------------------------------------------");
-
-  // --------------------------------------------------------
-  // Comparison
-  // --------------------------------------------------------
-
-  Logger.log(
-    "Reviewer count: " +
-    reviewCount
-  );
-
-  Logger.log(
-    "Actual reviewed records: " +
-    actualReviewed
-  );
-
-  Logger.log(
-    "Difference: " +
-    (reviewCount - actualReviewed)
-  );
-
-  Logger.log("------------------------------------------");
-
-  if (
-    reviewCount === actualReviewed
-  ) {
+    const data =
+      getCurrentReviewImage();
 
     Logger.log(
-      "RESULT: Reviewer progress matches database."
+      JSON.stringify(data)
     );
-
-  } else {
 
     Logger.log(
-      "RESULT: Reviewer progress DOES NOT match database."
+      "Row: " +
+      data.row
     );
-
-  }
-
-  Logger.log("==========================================");
-  Logger.log("REVIEW PROGRESS TEST COMPLETE");
-  Logger.log("==========================================");
-
-}
-
-
-
-
-/**
- * ==========================================================
- * REVIEW STATUS AUDIT TEST
- * ----------------------------------------------------------
- * Audits the actual Review Status values stored in the
- * Media Database.
- *
- * This test is completely read-only.
- *
- * It does NOT:
- * • Change reviewer position
- * • Change review status
- * • Modify the Media Database
- * • Modify user properties
- *
- * Purpose:
- * • Show exactly how many records have each Review Status
- * • Confirm the database state before changing review logic
- * ==========================================================
- */
-function testReviewStatusAudit() {
-
-  Logger.log("==========================================");
-  Logger.log("REVIEW STATUS AUDIT TEST");
-  Logger.log("==========================================");
-
-  const media =
-    getAllMedia();
-
-  const statusColumn =
-    COL.REVIEW_STATUS - 1;
-
-  const statusCounts = {};
-
-  let totalRecords = 0;
-
-  // --------------------------------------------------------
-  // Scan Media Database
-  // --------------------------------------------------------
-
-  for (
-    let i = 1;
-    i < media.length;
-    i++
-  ) {
-
-    totalRecords++;
-
-    let status =
-      media[i][statusColumn];
-
-    // Treat blank cells as "Blank"
-    if (
-      status === null ||
-      status === undefined ||
-      status === ""
-    ) {
-
-      status = "Blank";
-
-    }
-
-    statusCounts[status] =
-      (statusCounts[status] || 0) + 1;
-  }
-
-  // --------------------------------------------------------
-  // Results
-  // --------------------------------------------------------
-
-  Logger.log(
-    "Total media records: " +
-    totalRecords
-  );
-
-  Logger.log("------------------------------------------");
-
-  Object.keys(statusCounts)
-    .sort()
-    .forEach(function(status) {
-
-      Logger.log(
-        status +
-        " : " +
-        statusCounts[status]
-      );
-
-    });
-
-  Logger.log("------------------------------------------");
-
-  Logger.log(
-    "Reviewed records: " +
-    (statusCounts["Reviewed"] || 0)
-  );
-
-  Logger.log(
-    "Reviewer progress: " +
-    getReviewCount()
-  );
-
-  Logger.log("------------------------------------------");
-
-  Logger.log("REVIEW STATUS AUDIT COMPLETE");
-
-  Logger.log("==========================================");
-}
-
-
-
-
-/**
- * ==========================================================
- * TEST: REVIEW STATUS RECORDS
- * ----------------------------------------------------------
- * Lists every media record currently marked as Reviewed.
- *
- * Used to compare the actual database review state against
- * the reviewer's stored progress position.
- * ==========================================================
- */
-function testReviewStatusRecords() {
-
-  Logger.log("==========================================");
-  Logger.log("REVIEW STATUS RECORDS TEST");
-  Logger.log("==========================================");
-
-  const media =
-    getAllMedia();
-
-  let reviewedCount = 0;
-
-  for (
-    let i = 1;
-    i < media.length;
-    i++
-  ) {
-
-    const status =
-      media[i][COL.REVIEW_STATUS - 1];
-
-    if (status === "Reviewed") {
-
-      reviewedCount++;
-
-      const rowNumber = i + 1;
-
-      const fileName =
-        media[i][COL.NAME - 1];
-
-      const reviewDate =
-        media[i][COL.REVIEW_DATE - 1];
-
-      const grade =
-        media[i][COL.GRADE - 1];
-
-      const bookCandidate =
-        media[i][COL.BOOK_CANDIDATE - 1];
-
-      const finalBook =
-        media[i][COL.FINAL_BOOK - 1];
-
-      Logger.log("------------------------------------------");
-
-      Logger.log(
-        "Row: " +
-        rowNumber
-      );
-
-      Logger.log(
-        "File: " +
-        fileName
-      );
-
-      Logger.log(
-        "Review Date: " +
-        reviewDate
-      );
-
-      Logger.log(
-        "Grade: " +
-        grade
-      );
-
-      Logger.log(
-        "Book Candidate: " +
-        bookCandidate
-      );
-
-      Logger.log(
-        "Final Book: " +
-        finalBook
-      );
-
-    }
-
-  }
-
-  Logger.log("------------------------------------------");
-
-  Logger.log(
-    "Total Reviewed records: " +
-    reviewedCount
-  );
-
-  Logger.log(
-    "Reviewer calculated count: " +
-    getReviewCount()
-  );
-
-  Logger.log(
-    "Current reviewer row: " +
-    getLastReviewedRow()
-  );
-
-  Logger.log("==========================================");
-  Logger.log("REVIEW STATUS RECORDS TEST COMPLETE");
-  Logger.log("==========================================");
-
-}
-
-// ==========================================================
-// REVIEW COUNTING TEST
-// ==========================================================
-
-/**
- * Tests the actual review and book-selection counts.
- *
- * This test is completely read-only.
- *
- * Compares:
- * • Reviewer position count
- * • Actual Review Status records
- * • Book Candidate records
- * • Final Book records
- *
- * Also lists every reviewed image.
- */
-function testReviewCounting() {
-
-  Logger.log("==========================================");
-  Logger.log("REVIEW COUNTING TEST");
-  Logger.log("==========================================");
-
-  // --------------------------------------------------------
-  // REVIEWER POSITION
-  // --------------------------------------------------------
-
-  const currentRow =
-    getLastReviewedRow();
-
-  const reviewerCount =
-    getReviewCount();
-
-  Logger.log(
-    "Reviewer start row: " +
-    REVIEWER.START_ROW
-  );
-
-  Logger.log(
-    "Current reviewer row: " +
-    currentRow
-  );
-
-  Logger.log(
-    "Reviewer position count: " +
-    reviewerCount
-  );
-
-  Logger.log("------------------------------------------");
-
-  // --------------------------------------------------------
-  // READ MEDIA DATABASE
-  // --------------------------------------------------------
-
-  const media =
-    getAllMedia();
-
-  let actualReviewed = 0;
-  let bookCandidates = 0;
-  let finalBookCount = 0;
-
-  const reviewedImages = [];
-
-  // --------------------------------------------------------
-  // COUNT DATABASE VALUES
-  // --------------------------------------------------------
-
-  for (
-    let i = 1;
-    i < media.length;
-    i++
-  ) {
-
-    const record =
-      media[i];
-
-    const rowNumber =
-      i + 1;
-
-    const fileName =
-      record[COL.NAME - 1];
-
-    const reviewStatus =
-      record[COL.REVIEW_STATUS - 1];
-
-    const reviewDate =
-      record[COL.REVIEW_DATE - 1];
-
-    const grade =
-      record[COL.GRADE - 1];
-
-    const bookCandidate =
-      record[COL.BOOK_CANDIDATE - 1];
-
-    const finalBook =
-      record[COL.FINAL_BOOK - 1];
-
-    // ------------------------------------------------------
-    // REVIEWED
-    // ------------------------------------------------------
-
-    if (
-      reviewStatus === "Reviewed"
-    ) {
-
-      actualReviewed++;
-
-      reviewedImages.push({
-
-        row:
-          rowNumber,
-
-        fileName:
-          fileName,
-
-        reviewDate:
-          reviewDate,
-
-        grade:
-          grade,
-
-        bookCandidate:
-          bookCandidate,
-
-        finalBook:
-          finalBook
-
-      });
-
-    }
-
-    // ------------------------------------------------------
-    // BOOK CANDIDATE
-    // ------------------------------------------------------
-
-    if (
-      bookCandidate === true ||
-      bookCandidate === "TRUE"
-    ) {
-
-      bookCandidates++;
-
-    }
-
-    // ------------------------------------------------------
-    // FINAL BOOK
-    // ------------------------------------------------------
-
-    if (
-      finalBook === true ||
-      finalBook === "TRUE"
-    ) {
-
-      finalBookCount++;
-
-    }
-
-  }
-
-  // --------------------------------------------------------
-  // DATABASE TOTALS
-  // --------------------------------------------------------
-
-  Logger.log(
-    "Media database records: " +
-    (media.length - 1)
-  );
-
-  Logger.log(
-    "Actual Reviewed records: " +
-    actualReviewed
-  );
-
-  Logger.log(
-    "Actual Book Candidate records: " +
-    bookCandidates
-  );
-
-  Logger.log(
-    "Actual Final Book records: " +
-    finalBookCount
-  );
-
-  Logger.log("------------------------------------------");
-
-  // --------------------------------------------------------
-  // REVIEWED IMAGE DETAILS
-  // --------------------------------------------------------
-
-  Logger.log(
-    "REVIEWED IMAGE RECORDS"
-  );
-
-  Logger.log("------------------------------------------");
-
-  if (
-    reviewedImages.length === 0
-  ) {
 
     Logger.log(
-      "No reviewed images found."
+      "Total: " +
+      data.total
     );
 
-  } else {
+    Logger.log(
+      "File: " +
+      data.fileName
+    );
 
-    reviewedImages.forEach(
-      function(image) {
+    Logger.log(
+      "Image URL: " +
+      data.imageUrl
+    );
 
-        Logger.log(
-          "Row: " +
-          image.row
-        );
+    Logger.log(
+      "=========================================="
+    );
 
-        Logger.log(
-          "File: " +
-          image.fileName
-        );
-
-        Logger.log(
-          "Review Date: " +
-          image.reviewDate
-        );
-
-        Logger.log(
-          "Grade: " +
-          image.grade
-        );
-
-        Logger.log(
-          "Book Candidate: " +
-          image.bookCandidate
-        );
-
-        Logger.log(
-          "Final Book: " +
-          image.finalBook
-        );
-
-        Logger.log(
-          "------------------------------------------"
-        );
-
-      }
+    Logger.log(
+      "RESULT: REVIEW DATA PAYLOAD OK"
     );
 
   }
 
-  // --------------------------------------------------------
-  // REVIEW COUNT COMPARISON
-  // --------------------------------------------------------
-
-  Logger.log(
-    "REVIEW COUNT COMPARISON"
-  );
-
-  Logger.log("------------------------------------------");
-
-  Logger.log(
-    "Reviewer position count: " +
-    reviewerCount
-  );
-
-  Logger.log(
-    "Actual reviewed count: " +
-    actualReviewed
-  );
-
-  Logger.log(
-    "Difference: " +
-    (reviewerCount - actualReviewed)
-  );
-
-  Logger.log("------------------------------------------");
-
-  if (
-    reviewerCount === actualReviewed
-  ) {
+  catch (error) {
 
     Logger.log(
-      "RESULT: Reviewer count matches actual reviewed records."
+      "=========================================="
     );
 
-  } else {
+    Logger.log(
+      "RESULT: FAILED"
+    );
 
     Logger.log(
-      "RESULT: Reviewer count DOES NOT match actual reviewed records."
+      error.message
+    );
+
+    Logger.log(
+      error.stack
     );
 
   }
 
-  // --------------------------------------------------------
-  // BOOK SELECTION TOTALS
-  // --------------------------------------------------------
-
-  Logger.log("------------------------------------------");
-
   Logger.log(
-    "Book Candidates: " +
-    bookCandidates
+    "=========================================="
   );
-
-  Logger.log(
-    "Final Book: " +
-    finalBookCount
-  );
-
-  Logger.log("==========================================");
-  Logger.log("REVIEW COUNTING TEST COMPLETE");
-  Logger.log("==========================================");
 
 }

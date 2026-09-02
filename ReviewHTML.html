@@ -2,296 +2,445 @@
 <html>
 
 <head>
+
   <base target="_top">
+
   <?!= include('StylesHTML'); ?>
+
 </head>
 
+
 <body>
+
 
 <div class="review-container">
 
 
- 
+  <!-- ======================================================
+       IMAGE + NAVIGATION AREA
+       ====================================================== -->
 
-<!-- IMAGE + NAVIGATION AREA -->
-
-<div class="image-review-area">
-
-
-  <button id="previousButton">
-    ◀
-  </button>
+  <div class="image-review-area">
 
 
-  <div class="image-section">
-
-    <img 
-      id="imagePreview"
-      src=""
-      alt="Image Preview"
-      class="image-preview"
+    <button
+      id="previousButton"
+      type="button"
     >
-
-  </div>
-
-
-  <button id="nextButton">
-    ▶
-  </button>
+      ◀
+    </button>
 
 
-</div>
+    <div class="image-section">
 
 
-<div class="image-toolbar">
+      <div
+        id="imageLoading"
+        class="image-loading"
+      >
+        Loading image...
+      </div>
 
 
-  <div class="image-counter">
-
-    Image 
-    <span id="imageNumber">1</span>
-    of
-    <span id="imageTotal">1265</span>
-
-  </div>
+      <img
+        id="imagePreview"
+        src=""
+        alt="Image Preview"
+        class="image-preview"
+      >
 
 
-  <button id="saveButton">
-    Save
-  </button>
+      <div
+        id="imageError"
+        class="image-error"
+      >
+        Image could not be displayed.
+      </div>
 
 
-  <span id="saveStatus">
-  </span>
-
-
-</div>
-
-
- 
-
-  <!-- GRADING AREA -->
-
-<div class="grading-section">
-
-  <h4>Creative Review</h4>
-
-
-  <div class="review-fields">
-
-
-    <label>
-      Grade
-      <select id="grade">
-        <option></option>
-        <option>S</option>
-        <option>A</option>
-        <option>B</option>
-        <option>C</option>
-        <option>D</option>
-      </select>
-    </label>
-
-
-<label>
-  Selection
-  <select id="selectionStage">
-    <option></option>
-    <option>Unreviewed</option>
-    <option>Reviewed</option>
-    <option>Shortlisted</option>
-    <option>Final Selection</option>
-    <option>Rejected</option>
-  </select>
-</label>
-
-
-    <label>
-      Story Value
-      <select id="storyValue">
-        <option></option>
-        <option>5</option>
-        <option>4</option>
-        <option>3</option>
-        <option>2</option>
-        <option>1</option>
-      </select>
-    </label>
-
-
-<label>
-  Layout
-  <select id="layoutSuitability">
-
-    <option value=""></option>
-
-    <option value="Hero">
-      Hero — Cover or chapter opener
-    </option>
-
-    <option value="Double Spread">
-      Double Spread — Across two pages
-    </option>
-
-    <option value="Full Page">
-      Full Page — Single page feature
-    </option>
-
-    <option value="Half Page">
-      Half Page — Shared page layout
-    </option>
-
-    <option value="Quarter Page">
-      Quarter Page — Supporting image
-    </option>
-
-  </select>
-</label>
-
-
-    <label>
-      Print
-      <select id="printSuitability">
-        <option></option>
-        <option>Excellent</option>
-        <option>Good</option>
-        <option>Acceptable</option>
-        <option>Poor</option>
-      </select>
-    </label>
-
-
-  </div>
-
-
-</div>
-
-
-  <!-- CHECKBOX AREA -->
-
-<div class="checkbox-section">
-
-  <h4>Selection</h4>
-
-  <div class="checkbox-options">
-
-    <label>
-      <input
-        type="checkbox"
-        id="heroImage">
-      Hero Image
-    </label>
-
-
-    <label>
-      <input
-        type="checkbox"
-        id="bookCandidate">
-      Book Candidate
-    </label>
-
-
-    <label>
-      <input
-        type="checkbox"
-        id="finalBook">
-      Final Book
-    </label>
-
-  </div>
-
-</div>
-
-<!-- METADATA AREA -->
-
-<div class="metadata-section">
-
-  <h4>Metadata</h4>
-
-  <div class="metadata-grid">
-
-    <div>
-      <label>Year</label>
-      <span id="year"></span>
     </div>
 
-    <div>
-      <label>Photographer</label>
-      <span id="photographer"></span>
+
+    <button
+      id="nextButton"
+      type="button"
+    >
+      ▶
+    </button>
+
+
+  </div>
+
+
+  <!-- ======================================================
+       IMAGE TOOLBAR
+       ====================================================== -->
+
+
+  <div class="image-toolbar">
+
+
+    <div class="image-counter">
+
+      Image
+
+      <span id="imageNumber">
+        1
+      </span>
+
+      of
+
+      <span id="imageTotal">
+        0
+      </span>
+
     </div>
 
-    <div>
-      <label>Camera</label>
-      <span id="camera"></span>
-    </div>
 
-    <div>
+    <button
+      id="saveButton"
+      type="button"
+    >
+      Save
+    </button>
+
+
+    <span id="saveStatus"></span>
+
+
+  </div>
+
+
+  <!-- ======================================================
+       CREATIVE REVIEW
+       ====================================================== -->
+
+
+  <div class="grading-section">
+
+
+    <h4>
+      Creative Review
+    </h4>
+
+
+    <div class="review-fields">
+
 
       <label>
-        Category
+
+        Grade
+
+        <select id="grade">
+
+          <option value=""></option>
+          <option value="S">S</option>
+          <option value="A">A</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+          <option value="D">D</option>
+
+        </select>
+
       </label>
 
-      <select id="category">
 
-        <option></option>
+      <label>
 
-        <option>Cover</option>
-        <option>Where's Enos?</option>
-        <option>Setup & Workshop</option>
-        <option>Build Onsite</option>
-        <option>Jollers & People</option>
-        <option>Artworks & Burns</option>
-        <option>Landscapes & Nature</option>
-        <option>Nightlife & DJs</option>
-        <option>Strike & Packing</option>
-        <option>Portraits & Extras</option>
+        Story Value
 
-      </select>
+        <select id="storyValue">
+
+          <option value=""></option>
+          <option value="5">5</option>
+          <option value="4">4</option>
+          <option value="3">3</option>
+          <option value="2">2</option>
+          <option value="1">1</option>
+
+        </select>
+
+      </label>
+
+
+      <label>
+
+        Layout
+
+        <select id="layoutSuitability">
+
+          <option value=""></option>
+
+          <option value="Dual Page Spread">
+            Dual Page Spread
+          </option>
+
+          <option value="Single Page Dual Landscape">
+            Single Page Dual Landscape
+          </option>
+
+          <option value="Single Page Landscape">
+            Single Page Landscape
+          </option>
+
+          <option value="Single Page Dual Portrait">
+            Single Page Dual Portrait
+          </option>
+
+          <option value="Portrait">
+            Portrait
+          </option>
+
+        </select>
+
+      </label>
+
+
+      <label>
+
+        Print
+
+        <select id="printSuitability">
+
+          <option value=""></option>
+
+          <option value="Excellent">
+            Excellent
+          </option>
+
+          <option value="Good">
+            Good
+          </option>
+
+          <option value="Acceptable">
+            Acceptable
+          </option>
+
+          <option value="Poor">
+            Poor
+          </option>
+
+        </select>
+
+      </label>
+
 
     </div>
 
+
   </div>
 
+
+  <!-- ======================================================
+       SELECTION
+       ====================================================== -->
+
+
+  <div class="checkbox-section">
+
+
+    <h4>
+      Selection
+    </h4>
+
+
+    <div class="checkbox-options">
+
+
+      <label>
+
+        <input
+          type="checkbox"
+          id="heroImage"
+        >
+
+        Hero Image
+
+      </label>
+
+
+      <label>
+
+        <input
+          type="checkbox"
+          id="finalBook"
+        >
+
+        Final Book
+
+      </label>
+
+
+    </div>
+
+
+  </div>
+
+
+  <!-- ======================================================
+       METADATA
+       ====================================================== -->
+
+
+  <div class="metadata-section">
+
+
+    <h4>
+      Metadata
+    </h4>
+
+
+    <div class="metadata-grid">
+
+
+      <div>
+
+        <label>
+          Year
+        </label>
+
+        <span id="year"></span>
+
+      </div>
+
+
+      <div>
+
+        <label>
+          Photographer
+        </label>
+
+        <span id="photographer"></span>
+
+      </div>
+
+
+      <div>
+
+        <label>
+          Camera
+        </label>
+
+        <span id="camera"></span>
+
+      </div>
+
+
+      <div>
+
+        <label>
+          Category
+        </label>
+
+        <select id="category">
+
+          <option value=""></option>
+
+          <option value="Cover">
+            Cover
+          </option>
+
+          <option value="Where's Enos?">
+            Where's Enos?
+          </option>
+
+          <option value="Setup & Workshop">
+            Setup & Workshop
+          </option>
+
+          <option value="Build Onsite">
+            Build Onsite
+          </option>
+
+          <option value="Jollers & People">
+            Jollers & People
+          </option>
+
+          <option value="Artworks & Burns">
+            Artworks & Burns
+          </option>
+
+          <option value="Landscapes & Nature">
+            Landscapes & Nature
+          </option>
+
+          <option value="Nightlife & DJs">
+            Nightlife & DJs
+          </option>
+
+          <option value="Strike & Packing">
+            Strike & Packing
+          </option>
+
+          <option value="Portraits & Extras">
+            Portraits & Extras
+          </option>
+
+        </select>
+
+      </div>
+
+
+    </div>
+
+
+  </div>
+
+
+  <!-- ======================================================
+       CAPTION
+       ====================================================== -->
+
+
+  <div class="caption-section">
+
+    <h4>
+      Caption
+    </h4>
+
+    <textarea
+      id="caption"
+      placeholder="Book caption..."
+    ></textarea>
+
+  </div>
+
+
+  <!-- ======================================================
+       NOTES
+       ====================================================== -->
+
+
+  <div class="notes-section">
+
+    <h4>
+      Notes
+    </h4>
+
+    <textarea
+      id="notes"
+      placeholder="Editing notes..."
+    ></textarea>
+
+  </div>
+
+
+  <!-- ======================================================
+       FILE INFORMATION
+       ====================================================== -->
+
+
+  <div class="file-section">
+
+    <h4 id="fileName">
+      Loading...
+    </h4>
+
+  </div>
+
+
 </div>
 
-<!-- CAPTION AREA -->
-
-<div class="caption-section">
-
-  <h4>Caption</h4>
-
-  <textarea
-    id="caption"
-    placeholder="Book caption..."
-  ></textarea>
-
-</div>
-
-
-<!-- NOTES AREA -->
-
-<div class="notes-section">
-
-  <h4>Notes</h4>
-
-  <textarea
-    id="notes"
-    placeholder="Editing notes..."
-  ></textarea>
-
-</div>
-
-
-<!-- FILE INFORMATION -->
-
-<div class="file-section">
-
-  <h4 id="fileName">IMG_0000.jpg</h4>
-
-</div>
-
-
-</div>
 
 <script>
 
@@ -304,7 +453,9 @@ document.addEventListener(
   "DOMContentLoaded",
   function() {
 
-    console.log("Reviewer started");
+    console.log(
+      "Reviewer started"
+    );
 
     loadCurrentImage();
 
@@ -313,104 +464,296 @@ document.addEventListener(
 
 
 // ==========================================================
-// LOAD IMAGE DATA FROM APPS SCRIPT
+// LOAD CURRENT IMAGE
 // ==========================================================
 
 function loadCurrentImage() {
 
+  showLoadingState();
+
+
   google.script.run
-    .withSuccessHandler(populateReview)
+
+    .withSuccessHandler(
+      populateReview
+    )
+
+    .withFailureHandler(
+      handleError
+    )
+
     .getCurrentReviewImage();
 
 }
 
 
 // ==========================================================
-// POPULATE FORM
+// SHOW LOADING STATE
 // ==========================================================
 
+function showLoadingState() {
+
+  const image =
+    document.getElementById(
+      "imagePreview"
+    );
+
+
+  const fileName =
+    document.getElementById(
+      "fileName"
+    );
+
+
+  if (image) {
+
+    image.style.opacity =
+      "0.35";
+
+  }
+
+
+  if (fileName) {
+
+    fileName.innerText =
+      "Loading image...";
+
+  }
+
+}
+
+
+// ==========================================================
+// POPULATE REVIEW
+// ==========================================================
 
 function populateReview(data) {
 
-  console.log(data);
+  console.log(
+    "Review data:",
+    data
+  );
 
 
-  document.getElementById("imagePreview").src =
+  if (!data) {
+
+    handleError({
+      message:
+        "No review data was returned."
+    });
+
+    return;
+
+  }
+
+
+  // --------------------------------------------------------
+  // IMAGE
+  // --------------------------------------------------------
+
+  const image =
+    document.getElementById(
+      "imagePreview"
+    );
+
+
+  if (!image) {
+
+    handleError({
+      message:
+        "Image preview element not found."
+    });
+
+    return;
+
+  }
+
+
+  image.onload =
+    function() {
+
+      console.log(
+        "Image loaded successfully."
+      );
+
+      image.style.opacity =
+        "1";
+
+    };
+
+
+  image.onerror =
+    function() {
+
+      console.error(
+        "Image failed to load:",
+        data.imageUrl
+      );
+
+
+      image.style.opacity =
+        "1";
+
+
+      document.getElementById(
+        "saveStatus"
+      ).innerText =
+        "Image could not be loaded from Google Drive.";
+
+    };
+
+
+  image.src =
     data.imageUrl || "";
 
 
-  document.getElementById("fileName").innerText =
-    data.fileName || "";
+  // --------------------------------------------------------
+  // FILE NAME
+  // --------------------------------------------------------
+
+  document
+    .getElementById("fileName")
+    .innerText =
+      data.fileName || "";
 
 
-  document.getElementById("imageNumber").innerText =
-    data.row || "";
+  // --------------------------------------------------------
+  // IMAGE COUNTER
+  // --------------------------------------------------------
+  //
+  // Spreadsheet row 2 is Image 1.
+  //
+  // Therefore:
+  //
+  // imageNumber = row - 1
+  //
+  // --------------------------------------------------------
+
+  document
+    .getElementById("imageNumber")
+    .innerText =
+      Math.max(
+        1,
+        (data.row || 2) - 1
+      );
 
 
-  document.getElementById("imageTotal").innerText =
-    data.total || "";
+  document
+    .getElementById("imageTotal")
+    .innerText =
+      data.total || "";
 
 
-  document.getElementById("year").innerText =
-    data.metadata.year || "";
+  // --------------------------------------------------------
+  // METADATA
+  // --------------------------------------------------------
+
+  const metadata =
+    data.metadata || {};
 
 
-  document.getElementById("photographer").innerText =
-    data.metadata.photographer || "";
+  document
+    .getElementById("year")
+    .innerText =
+      metadata.year || "";
 
 
-  document.getElementById("camera").innerText =
-    data.metadata.camera || "";
+  document
+    .getElementById("photographer")
+    .innerText =
+      metadata.photographer || "";
 
 
-  document.getElementById("category").value =
-  data.metadata.category || "";
+  document
+    .getElementById("camera")
+    .innerText =
+      metadata.camera || "";
 
 
-  document.getElementById("grade").value =
-    data.creative.grade || "";
-
-  document.getElementById("selectionStage").value =
-    data.creative.selectionStage || "";
-
-
-  document.getElementById("storyValue").value =
-    data.creative.storyValue || "";
+  document
+    .getElementById("category")
+    .value =
+      metadata.category || "";
 
 
-  document.getElementById("layoutSuitability").value =
-    data.creative.layoutSuitability || "";
+  // --------------------------------------------------------
+  // CREATIVE REVIEW
+  // --------------------------------------------------------
+
+  const creative =
+    data.creative || {};
 
 
-  document.getElementById("printSuitability").value =
-    data.creative.printSuitability || "";
+  document
+    .getElementById("grade")
+    .value =
+      creative.grade || "";
 
 
-  document.getElementById("heroImage").checked =
-    data.creative.heroImage || false;
+  document
+    .getElementById("storyValue")
+    .value =
+      creative.storyValue || "";
 
 
-  document.getElementById("bookCandidate").checked =
-    data.creative.bookCandidate || false;
+  document
+    .getElementById("layoutSuitability")
+    .value =
+      creative.layoutSuitability || "";
 
 
-  document.getElementById("finalBook").checked =
-    data.creative.finalBook || false;
+  document
+    .getElementById("printSuitability")
+    .value =
+      creative.printSuitability || "";
 
 
-  document.getElementById("caption").value =
-    data.creative.caption || "";
+  // --------------------------------------------------------
+  // SELECTION
+  // --------------------------------------------------------
+
+  document
+    .getElementById("heroImage")
+    .checked =
+      creative.heroImage === true;
 
 
-  document.getElementById("notes").value =
-    data.creative.notes || "";
+  document
+    .getElementById("finalBook")
+    .checked =
+      creative.finalBook === true;
+
+
+  // --------------------------------------------------------
+  // CAPTION
+  // --------------------------------------------------------
+
+  document
+    .getElementById("caption")
+    .value =
+      creative.caption || "";
+
+
+  // --------------------------------------------------------
+  // NOTES
+  // --------------------------------------------------------
+
+  document
+    .getElementById("notes")
+    .value =
+      creative.notes || "";
+
+
+  console.log(
+    "Reviewer populated successfully."
+  );
 
 }
+
 
 // ==========================================================
 // SAVE
 // ==========================================================
-
 
 document
   .getElementById("saveButton")
@@ -420,58 +763,116 @@ document
   );
 
 
+// ==========================================================
+// SAVE CURRENT REVIEW
+// ==========================================================
+
 function saveCurrentReview() {
 
-
   const saveButton =
-    document.getElementById("saveButton");
+    document.getElementById(
+      "saveButton"
+    );
 
 
   const saveStatus =
-    document.getElementById("saveStatus");
+    document.getElementById(
+      "saveStatus"
+    );
 
+
+  if (
+    saveButton.disabled
+  ) {
+
+    return;
+
+  }
+
+
+  // --------------------------------------------------------
+  // COLLECT REVIEW DATA
+  // --------------------------------------------------------
 
   const reviewData = {
 
-  grade:
-    document.getElementById("grade").value,
+    grade:
+      document
+        .getElementById("grade")
+        .value,
 
-  selectionStage:
-    document.getElementById("selectionStage").value,
 
-  storyValue:
-    document.getElementById("storyValue").value,
+    storyValue:
+      document
+        .getElementById("storyValue")
+        .value,
 
-  layoutSuitability:
-    document.getElementById("layoutSuitability").value,
 
-  printSuitability:
-    document.getElementById("printSuitability").value,
+    layoutSuitability:
+      document
+        .getElementById("layoutSuitability")
+        .value,
 
-  category:
-    document.getElementById("category").value,
 
-  heroImage:
-    document.getElementById("heroImage").checked,
+    printSuitability:
+      document
+        .getElementById("printSuitability")
+        .value,
 
-  bookCandidate:
-    document.getElementById("bookCandidate").checked,
 
-  finalBook:
-    document.getElementById("finalBook").checked,
+    category:
+      document
+        .getElementById("category")
+        .value,
 
-  caption:
-    document.getElementById("caption").value,
 
-  notes:
-    document.getElementById("notes").value
+    heroImage:
+      document
+        .getElementById("heroImage")
+        .checked,
 
-};
+
+    finalBook:
+      document
+        .getElementById("finalBook")
+        .checked,
+
+
+    caption:
+      document
+        .getElementById("caption")
+        .value,
+
+
+    notes:
+      document
+        .getElementById("notes")
+        .value
+
+  };
+
+
+  console.log(
+    "Saving review:",
+    reviewData
+  );
 
 
   saveButton.innerText =
     "Saving...";
 
+
+  saveButton.disabled =
+    true;
+
+
+  saveStatus.innerText =
+    "";
+
+
+  // --------------------------------------------------------
+  // SEND TO APPS SCRIPT
+  // --------------------------------------------------------
 
   google.script.run
 
@@ -479,7 +880,7 @@ function saveCurrentReview() {
       function(result) {
 
         console.log(
-          "Saved",
+          "Review saved:",
           result
         );
 
@@ -491,33 +892,61 @@ function saveCurrentReview() {
         saveStatus.innerText =
           "Changes stored";
 
+
+        setTimeout(
+          function() {
+
+            saveButton.disabled =
+              false;
+
+            saveButton.innerText =
+              "Save";
+
+          },
+          1000
+        );
+
       }
     )
 
 
     .withFailureHandler(
-  function(error) {
+      function(error) {
 
-    console.error(error);
-
-    saveButton.innerText =
-      "Save";
-
-    saveStatus.innerText =
-      error.message;
-
-  }
-)
+        console.error(
+          "Save failed:",
+          error
+        );
 
 
-    .saveReview(reviewData);
+        saveButton.disabled =
+          false;
+
+
+        saveButton.innerText =
+          "Save";
+
+
+        saveStatus.innerText =
+          error &&
+          error.message
+            ? error.message
+            : "Save failed";
+
+      }
+    )
+
+
+    .saveReview(
+      reviewData
+    );
 
 }
 
-// ==========================================================
-// NEXT
-// ==========================================================
 
+// ==========================================================
+// NEXT IMAGE
+// ==========================================================
 
 document
   .getElementById("nextButton")
@@ -525,42 +954,87 @@ document
     "click",
     function() {
 
+      const nextButton =
+        document.getElementById(
+          "nextButton"
+        );
+
+
+      nextButton.disabled =
+        true;
+
+
+      document.getElementById(
+        "saveStatus"
+      ).innerText =
+        "Loading...";
+
 
       google.script.run
 
         .withSuccessHandler(
           function(data) {
 
-
-            document
-              .getElementById("saveButton")
-              .innerText =
-              "Save";
+            nextButton.disabled =
+              false;
 
 
             document
-              .getElementById("saveStatus")
+              .getElementById(
+                "saveButton"
+              )
               .innerText =
-              "";
+                "Save";
 
 
-            populateReview(data);
+            document
+              .getElementById(
+                "saveButton"
+              )
+              .disabled =
+                false;
 
+
+            document
+              .getElementById(
+                "saveStatus"
+              )
+              .innerText =
+                "";
+
+
+            populateReview(
+              data
+            );
 
           }
         )
 
-        .nextReviewImage();
 
+        .withFailureHandler(
+          function(error) {
+
+            nextButton.disabled =
+              false;
+
+
+            handleError(
+              error
+            );
+
+          }
+        )
+
+
+        .nextReviewImage();
 
     }
   );
 
 
 // ==========================================================
-// PREVIOUS
+// PREVIOUS IMAGE
 // ==========================================================
-
 
 document
   .getElementById("previousButton")
@@ -568,38 +1042,124 @@ document
     "click",
     function() {
 
+      const previousButton =
+        document.getElementById(
+          "previousButton"
+        );
+
+
+      previousButton.disabled =
+        true;
+
+
+      document.getElementById(
+        "saveStatus"
+      ).innerText =
+        "Loading...";
+
 
       google.script.run
 
         .withSuccessHandler(
           function(data) {
 
-
-            document
-              .getElementById("saveButton")
-              .innerText =
-              "Save";
+            previousButton.disabled =
+              false;
 
 
             document
-              .getElementById("saveStatus")
+              .getElementById(
+                "saveButton"
+              )
               .innerText =
-              "";
+                "Save";
 
 
-            populateReview(data);
+            document
+              .getElementById(
+                "saveButton"
+              )
+              .disabled =
+                false;
 
+
+            document
+              .getElementById(
+                "saveStatus"
+              )
+              .innerText =
+                "";
+
+
+            populateReview(
+              data
+            );
 
           }
         )
 
-        .previousReviewImage();
 
+        .withFailureHandler(
+          function(error) {
+
+            previousButton.disabled =
+              false;
+
+
+            handleError(
+              error
+            );
+
+          }
+        )
+
+
+        .previousReviewImage();
 
     }
   );
 
+
+// ==========================================================
+// ERROR HANDLING
+// ==========================================================
+
+function handleError(error) {
+
+  console.error(
+    "Reviewer error:",
+    error
+  );
+
+
+  const saveStatus =
+    document.getElementById(
+      "saveStatus"
+    );
+
+
+  if (
+    error &&
+    error.message
+  ) {
+
+    saveStatus.innerText =
+      error.message;
+
+  }
+
+  else {
+
+    saveStatus.innerText =
+      "An unexpected error occurred.";
+
+  }
+
+}
+
+
 </script>
+
 
 </body>
 
