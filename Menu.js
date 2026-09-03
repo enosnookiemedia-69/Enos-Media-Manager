@@ -85,7 +85,7 @@ function onOpen() {
     // Book Creation
     // ------------------------------------------------------
 
-        .addItem(
+    .addItem(
       "Open Image Reviewer",
       "openImageReviewer"
     )
@@ -93,6 +93,23 @@ function onOpen() {
     .addItem(
       "Open Second Pass Reviewer",
       "openSecondPassReviewer"
+    )
+
+    .addSeparator()
+
+
+    // ------------------------------------------------------
+    // Reset Tools
+    // ------------------------------------------------------
+
+    .addItem(
+      "Reset Reviewed Images by Category…",
+      "resetByCategoryMenu"
+    )
+
+    .addItem(
+      "Reset \"Test\" Tagged Images…",
+      "resetTestImagesMenu"
     )
 
     .addSeparator()
