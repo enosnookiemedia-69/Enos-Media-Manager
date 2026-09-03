@@ -255,6 +255,126 @@ function syncBookList() {
 
 
 // ==========================================================
+// SYNC SINGLE RECORD TO BOOK LIST
+// ----------------------------------------------------------
+// Used by the Reviewer to immediately sync one image into
+// Final Book Image Possibilities the moment it is marked
+// Hero Image or Final Book, without scanning the entire
+// Media Database.
+//
+// Status is stamped "Pushed" only when the row is new or
+// the Status cell is still blank — this records that the
+// image was auto-pushed by a Hero/Final Book selection,
+// while never overwriting a Status you've already set
+// manually (e.g. Shortlisted, Final Selection).
+// ==========================================================
+
+function syncSingleMediaRecordToBookList(rawRow, statusLabel) {
+
+  statusLabel =
+    statusLabel || "Pushed";
+
+  const mediaRecord =
+    rowToMediaObject(
+      rawRow
+    );
+
+
+  if (!mediaRecord.id) {
+
+    return;
+
+  }
+
+
+  const existingRow =
+    findBookRecordRow(
+      mediaRecord.id
+    );
+
+
+  if (existingRow) {
+
+    updateBookRecord(
+      existingRow,
+      mediaRecord
+    );
+
+
+    stampStatusIfBlank(
+      existingRow,
+      statusLabel
+    );
+
+  }
+
+  else {
+
+    addBookRecord(
+      mediaRecord
+    );
+
+
+    const newRow =
+      findBookRecordRow(
+        mediaRecord.id
+      );
+
+
+    stampStatusIfBlank(
+      newRow,
+      statusLabel
+    );
+
+  }
+
+}
+
+
+// ==========================================================
+// STAMP STATUS
+// ----------------------------------------------------------
+// Only writes the given label when the Status cell is
+// currently blank, so manual editorial Status values are
+// never overwritten.
+// ==========================================================
+
+function stampStatusIfBlank(rowNumber, statusLabel) {
+
+  if (!rowNumber) {
+
+    return;
+
+  }
+
+
+  const sheet =
+    getBookSheet();
+
+
+  const statusCell =
+    sheet.getRange(
+      rowNumber,
+      BOOKLIST.COLUMNS.STATUS
+    );
+
+
+  const currentStatus =
+    statusCell.getValue();
+
+
+  if (!currentStatus) {
+
+    statusCell.setValue(
+      statusLabel
+    );
+
+  }
+
+}
+
+
+// ==========================================================
 // FIND BOOK RECORD
 // ==========================================================
 

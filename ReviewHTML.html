@@ -505,6 +505,18 @@ function showLoadingState() {
     );
 
 
+  const loadingEl =
+    document.getElementById(
+      "imageLoading"
+    );
+
+
+  const errorEl =
+    document.getElementById(
+      "imageError"
+    );
+
+
   if (image) {
 
     image.style.opacity =
@@ -517,6 +529,22 @@ function showLoadingState() {
 
     fileName.innerText =
       "Loading image...";
+
+  }
+
+
+  if (loadingEl) {
+
+    loadingEl.style.display =
+      "block";
+
+  }
+
+
+  if (errorEl) {
+
+    errorEl.style.display =
+      "none";
 
   }
 
@@ -569,7 +597,7 @@ function populateReview(data) {
   }
 
 
-  image.onload =
+ image.onload =
     function() {
 
       console.log(
@@ -578,6 +606,33 @@ function populateReview(data) {
 
       image.style.opacity =
         "1";
+
+
+      const loadingEl =
+        document.getElementById(
+          "imageLoading"
+        );
+
+      const errorEl =
+        document.getElementById(
+          "imageError"
+        );
+
+
+      if (loadingEl) {
+
+        loadingEl.style.display =
+          "none";
+
+      }
+
+
+      if (errorEl) {
+
+        errorEl.style.display =
+          "none";
+
+      }
 
     };
 
@@ -593,6 +648,33 @@ function populateReview(data) {
 
       image.style.opacity =
         "1";
+
+
+      const loadingEl =
+        document.getElementById(
+          "imageLoading"
+        );
+
+      const errorEl =
+        document.getElementById(
+          "imageError"
+        );
+
+
+      if (loadingEl) {
+
+        loadingEl.style.display =
+          "none";
+
+      }
+
+
+      if (errorEl) {
+
+        errorEl.style.display =
+          "block";
+
+      }
 
 
       document.getElementById(

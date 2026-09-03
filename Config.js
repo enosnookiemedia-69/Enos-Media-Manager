@@ -254,6 +254,7 @@ CONFIG.SELECTION_STAGES = [
   "None",
   "Candidate",
   "Book Possibility",
+  "Not Selected",
   "Shortlist",
   "Final",
   "Published"

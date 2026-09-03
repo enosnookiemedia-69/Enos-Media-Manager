@@ -814,6 +814,43 @@ function saveReview(reviewData) {
 
   }
 
+ // --------------------------------------------------------
+  // AUTO-ADD TO FINAL BOOK IMAGE POSSIBILITIES
+  //
+  // Hero Image and Final Book are strong editorial signals
+  // that this image will very likely make the book, so it
+  // is synced immediately rather than waiting for a full
+  // Book List sync. Status is stamped "Pushed" so you can
+  // see it arrived here via this shortcut rather than a
+  // future Second Pass sync.
+  // --------------------------------------------------------
+
+  if (
+    reviewData.heroImage === true ||
+    reviewData.finalBook === true
+  ) {
+
+    try {
+
+      syncSingleMediaRecordToBookList(
+        updatedRecord
+      );
+
+    }
+
+    catch (error) {
+
+      Logger.log(
+        "Could not sync record to Final Book Image Possibilities: " +
+        error.message
+      );
+
+    }
+
+  }
+
+
+
   // --------------------------------------------------------
   // MOVE TO NEXT IMAGE
   // --------------------------------------------------------
