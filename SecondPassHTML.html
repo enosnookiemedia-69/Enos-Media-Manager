@@ -1,9 +1,429 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <base target="_top">
-  </head>
-  <body>
-    
-  </body>
+
+<head>
+
+  <base target="_top">
+
+  <?!= include('StylesHTML'); ?>
+  <?!= include('SecondPassStyles'); ?>
+
+</head>
+
+
+<body>
+
+
+<div class="review-container">
+
+
+  <!-- ======================================================
+       CATEGORY SELECTOR
+       ====================================================== -->
+
+  <div class="sp-header">
+
+    <label for="categorySelect"><strong>Category:</strong></label>
+
+    <select id="categorySelect" class="sp-category-select"></select>
+
+    <span id="remainingCount"></span>
+
+  </div>
+
+
+  <!-- ======================================================
+       PROGRESS CHIPS (all categories, current / target)
+       ====================================================== -->
+
+  <div id="progressList" class="sp-progress-list"></div>
+
+
+  <!-- ======================================================
+       IMAGE AREA
+       ====================================================== -->
+
+  <div class="image-review-area">
+
+    <div class="image-section">
+
+      <div id="imageLoading" class="image-loading">
+        Loading image...
+      </div>
+
+      <img
+        id="imagePreview"
+        src=""
+        alt="Image Preview"
+        class="image-preview"
+      >
+
+      <div id="imageError" class="image-error">
+        Image could not be displayed.
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- ======================================================
+       METADATA
+       ====================================================== -->
+
+  <div class="sp-meta-row">
+
+    <span>File: <strong id="metaFileName">-</strong></span>
+    <span>Grade: <strong id="metaGrade">-</strong></span>
+    <span>Story Value: <strong id="metaStoryValue">-</strong></span>
+    <span>Layout: <strong id="metaLayout">-</strong></span>
+
+  </div>
+
+  <div class="sp-meta-row">
+
+    <span>Caption: <span id="metaCaption">-</span></span>
+
+  </div>
+
+
+  <!-- ======================================================
+       EMPTY STATE
+       ====================================================== -->
+
+  <div id="emptyMessage" class="sp-empty-message">
+    No more candidates in this category.
+  </div>
+
+
+  <!-- ======================================================
+       DECISION BAR
+       ====================================================== -->
+
+  <div class="sp-decision-bar" id="decisionBar">
+
+    <button
+      type="button"
+      class="sp-skip-button"
+      onclick="decide('skip')"
+    >
+      SKIP
+    </button>
+
+    <button
+      type="button"
+      class="sp-add-button"
+      onclick="decide('add')"
+    >
+      ADD TO BOOK LIST
+    </button>
+
+  </div>
+
+
+</div>
+
+
+<script>
+
+let currentCategory = null;
+let currentRow = null;
+
+
+// ==========================================================
+// INITIAL LOAD
+// ==========================================================
+
+window.addEventListener(
+  'load',
+  function() {
+
+    loadProgress(true);
+
+    document
+      .getElementById('categorySelect')
+      .addEventListener(
+        'change',
+        function(event) {
+
+          currentCategory = event.target.value;
+          loadNextImage(currentCategory);
+
+        }
+      );
+
+  }
+);
+
+
+// ==========================================================
+// LOAD PROGRESS (all categories)
+// ==========================================================
+
+function loadProgress(autoSelectCategory) {
+
+  google.script.run
+
+    .withSuccessHandler(
+      function(progress) {
+
+        renderProgress(progress);
+
+        if (autoSelectCategory) {
+
+          const firstUnder =
+            progress.find(function(p) {
+              return p.status === 'under';
+            });
+
+          currentCategory =
+            firstUnder
+              ? firstUnder.category
+              : (progress[0] ? progress[0].category : null);
+
+        }
+
+        populateCategoryDropdown(
+          progress,
+          currentCategory
+        );
+
+        if (autoSelectCategory && currentCategory) {
+          loadNextImage(currentCategory);
+        }
+
+      }
+    )
+
+    .withFailureHandler(
+      handleError
+    )
+
+    .getSecondPassProgress();
+
+}
+
+
+// ==========================================================
+// RENDER PROGRESS CHIPS
+// ==========================================================
+
+function renderProgress(progress) {
+
+  const container =
+    document.getElementById('progressList');
+
+  container.innerHTML = '';
+
+  progress.forEach(function(p) {
+
+    const chip =
+      document.createElement('span');
+
+    chip.className =
+      'sp-progress-chip ' + p.status;
+
+    chip.innerText =
+      p.category + ': ' + p.current + '/' + p.target;
+
+    container.appendChild(chip);
+
+  });
+
+}
+
+
+// ==========================================================
+// POPULATE CATEGORY DROPDOWN
+// ==========================================================
+
+function populateCategoryDropdown(progress, selected) {
+
+  const select =
+    document.getElementById('categorySelect');
+
+  select.innerHTML = '';
+
+  progress.forEach(function(p) {
+
+    const option =
+      document.createElement('option');
+
+    option.value = p.category;
+
+    option.text =
+      p.category + ' (' + p.current + '/' + p.target + ')';
+
+    if (p.category === selected) {
+      option.selected = true;
+    }
+
+    select.appendChild(option);
+
+  });
+
+}
+
+
+// ==========================================================
+// LOAD NEXT CANDIDATE IMAGE
+// ==========================================================
+
+function loadNextImage(category) {
+
+  showLoadingState();
+
+  google.script.run
+
+    .withSuccessHandler(
+      populateImage
+    )
+
+    .withFailureHandler(
+      handleError
+    )
+
+    .getNextSecondPassImage(category);
+
+}
+
+
+// ==========================================================
+// SHOW LOADING STATE
+// ==========================================================
+
+function showLoadingState() {
+
+  const image =
+    document.getElementById('imagePreview');
+
+  image.style.opacity = '0.35';
+
+  document.getElementById('imageLoading').style.display = 'block';
+  document.getElementById('imageError').style.display = 'none';
+  document.getElementById('decisionBar').style.display = 'none';
+  document.getElementById('emptyMessage').style.display = 'none';
+
+}
+
+
+// ==========================================================
+// POPULATE IMAGE + METADATA
+// ==========================================================
+
+function populateImage(data) {
+
+  const remainingEl =
+    document.getElementById('remainingCount');
+
+  if (!data || !data.hasImage) {
+
+    document.getElementById('imageLoading').style.display = 'none';
+    document.getElementById('imagePreview').src = '';
+    document.getElementById('imagePreview').style.opacity = '1';
+    document.getElementById('emptyMessage').style.display = 'block';
+    document.getElementById('decisionBar').style.display = 'none';
+
+    if (remainingEl) {
+      remainingEl.innerText = '0 remaining';
+    }
+
+    currentRow = null;
+
+    return;
+
+  }
+
+  currentRow = data.row;
+
+  if (remainingEl) {
+    remainingEl.innerText = data.remainingCandidates + ' remaining';
+  }
+
+  const image =
+    document.getElementById('imagePreview');
+
+  image.onload = function() {
+
+    document.getElementById('imageLoading').style.display = 'none';
+    document.getElementById('imageError').style.display = 'none';
+    image.style.opacity = '1';
+
+  };
+
+  image.onerror = function() {
+
+    document.getElementById('imageLoading').style.display = 'none';
+    document.getElementById('imageError').style.display = 'block';
+    image.style.opacity = '1';
+
+  };
+
+  image.src = data.imageUrl || '';
+
+  document.getElementById('metaFileName').innerText = data.fileName || '-';
+  document.getElementById('metaGrade').innerText = data.grade || '-';
+  document.getElementById('metaStoryValue').innerText = data.storyValue || '-';
+  document.getElementById('metaLayout').innerText = data.layoutSuitability || '-';
+  document.getElementById('metaCaption').innerText = data.caption || '-';
+
+  document.getElementById('decisionBar').style.display = 'flex';
+
+}
+
+
+// ==========================================================
+// SAVE DECISION
+// ==========================================================
+
+function decide(decision) {
+
+  if (!currentRow) {
+    return;
+  }
+
+  document.getElementById('decisionBar').style.display = 'none';
+
+  google.script.run
+
+    .withSuccessHandler(
+      function() {
+
+        loadProgress(false);
+        loadNextImage(currentCategory);
+
+      }
+    )
+
+    .withFailureHandler(
+      handleError
+    )
+
+    .saveSecondPassDecision(
+      currentRow,
+      decision
+    );
+
+}
+
+
+// ==========================================================
+// ERROR HANDLING
+// ==========================================================
+
+function handleError(error) {
+
+  console.error(error);
+
+  document.getElementById('imageLoading').style.display = 'none';
+  document.getElementById('imageError').style.display = 'block';
+
+}
+
+</script>
+
+
+</body>
+
 </html>
+

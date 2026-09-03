@@ -188,6 +188,24 @@ CONFIG.CATEGORIES = [
 ];
 
 // ==========================================================
+// MANUAL CATEGORY TARGETS
+// ----------------------------------------------------------
+// Some categories (like "Portraits & Extras") aren't tied to
+// specific pages in the Book Final Layout — they're a flexible
+// pool of spares rather than fillers for numbered slots. Their
+// "needed" count is set manually here instead of being counted
+// from layout rows. Target shown in Second Pass = needed x 2,
+// same convention as the layout-driven categories.
+// ==========================================================
+
+CONFIG.MANUAL_CATEGORY_TARGETS = {
+
+  "Portraits & Extras": 15
+
+};
+
+
+// ==========================================================
 // IMAGE METADATA
 // ==========================================================
 /**

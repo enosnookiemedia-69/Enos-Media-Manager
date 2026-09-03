@@ -85,13 +85,15 @@ function onOpen() {
     // Book Creation
     // ------------------------------------------------------
 
-    .addItem(
+        .addItem(
       "Open Image Reviewer",
       "openImageReviewer"
     )
 
-    // Second Pass Reviewer will be added here
-    // once its current function name is confirmed.
+    .addItem(
+      "Open Second Pass Reviewer",
+      "openSecondPassReviewer"
+    )
 
     .addSeparator()
 

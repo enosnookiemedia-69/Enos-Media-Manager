@@ -623,10 +623,10 @@ function buildBookRow(
     // Manual Editorial Fields
     // ------------------------------------------------------
 
-    preserveValue(
+        preserveValue(
       existingRow,
       BOOKLIST.COLUMNS.CAPTION
-    ),
+    ) || media.caption || "",
 
     preserveValue(
       existingRow,
@@ -643,10 +643,10 @@ function buildBookRow(
       BOOKLIST.COLUMNS.STATUS
     ),
 
-    preserveValue(
+        preserveValue(
       existingRow,
       BOOKLIST.COLUMNS.NOTES
-    )
+    ) || media.notes || ""
 
   ];
 
