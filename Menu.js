@@ -39,9 +39,9 @@ function onOpen() {
     // Main
     // ------------------------------------------------------
 
-    .addItem(
+     .addItem(
       "Open Media Manager",
-      "showSidebar"
+      "openDashboard"
     )
 
     .addSeparator()
@@ -144,23 +144,6 @@ function onOpen() {
 // ==========================================================
 // USER INTERFACE
 // ==========================================================
-
-/**
- * Opens the application sidebar.
- */
-function showSidebar() {
-
-  const html =
-    HtmlService
-      .createHtmlOutputFromFile("Sidebar")
-      .setTitle(APP.NAME);
-
-  SpreadsheetApp
-    .getUi()
-    .showSidebar(html);
-
-}
-
 
 /**
  * Displays application information.
