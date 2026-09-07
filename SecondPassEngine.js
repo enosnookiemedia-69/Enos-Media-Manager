@@ -416,7 +416,10 @@ function getSecondPassProgress() {
         quota.target - current
       );
 
-    let status = "under";
+    let status =
+      quota.target > 0
+        ? "under"
+        : "met";
 
     if (
       quota.target > 0 &&
@@ -555,15 +558,126 @@ function getSecondPassCandidates(category) {
 
 
 // ==========================================================
+// SCALED PREVIEW (Drive API thumbnail)
+// ----------------------------------------------------------
+// Fetches a resized preview via the Drive Advanced Service
+// (already enabled in this project) instead of sending the
+// full-resolution original through google.script.run.
+//
+// Full-resolution JPEGs can be tens of MB — pushing that much
+// base64 text back to the dialog can exceed google.script.run's
+// transfer limits and surface as a generic
+// "JavaScript engine reported an unexpected error. Error code
+// INTERNAL" with no useful message. A ~1600px preview is more
+// than enough for a selection decision and avoids that entirely.
+//
+// Returns null (rather than throwing) if no thumbnail is
+// available yet, so the caller can fall back to the full image.
+// ==========================================================
+
+function getScaledSecondPassPreview(fileId) {
+
+  let meta;
+
+  try {
+
+    meta =
+      Drive.Files.get(
+        fileId,
+        { fields: "thumbnailLink" }
+      );
+
+  }
+
+  catch (error) {
+
+    return null;
+
+  }
+
+  if (!meta || !meta.thumbnailLink) {
+    return null;
+  }
+
+  // Drive's default thumbnail is small (~220px). Request a
+  // larger size by swapping the trailing =sNN size parameter.
+  const url =
+    meta.thumbnailLink.replace(
+      /=s\d+$/,
+      "=s1600"
+    );
+
+  const response =
+    UrlFetchApp.fetch(
+      url,
+      {
+        headers: {
+          Authorization:
+            "Bearer " + ScriptApp.getOAuthToken()
+        },
+        muteHttpExceptions: true
+      }
+    );
+
+  if (response.getResponseCode() !== 200) {
+    return null;
+  }
+
+  const blob =
+    response.getBlob();
+
+  const contentType =
+    blob.getContentType() || "image/jpeg";
+
+  const base64 =
+    Utilities.base64Encode(
+      blob.getBytes()
+    );
+
+  return (
+    "data:" +
+    contentType +
+    ";base64," +
+    base64
+  );
+
+}
+
+
+// ==========================================================
 // IMAGE LOADING
 // ----------------------------------------------------------
-// Loads a Drive image directly as a Base64 data URL, same
-// approach as the First Pass Reviewer, so the Second Pass
-// HTML can display it without relying on Drive thumbnail
-// endpoints.
+// Tries a scaled Drive thumbnail first (small payload, fast).
+// Falls back to the full-resolution Base64 data URL — the
+// same approach as the First Pass Reviewer — only if no
+// thumbnail is available yet.
 // ==========================================================
 
 function loadSecondPassImage(fileId, row, fileName) {
+
+  try {
+
+    const preview =
+      getScaledSecondPassPreview(
+        fileId
+      );
+
+    if (preview) {
+      return preview;
+    }
+
+  }
+
+  catch (thumbError) {
+
+    Logger.log(
+      "Second Pass: scaled preview failed, falling back to " +
+      "full image. Row: " + row +
+      " | File: " + fileName +
+      " | " + thumbError.message
+    );
+
+  }
 
   try {
 
