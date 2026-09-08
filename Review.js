@@ -278,37 +278,75 @@ function getCurrentReviewImage() {
   }
 
 
-  let row =
-    getLastReviewedRow();
-
-
   // --------------------------------------------------------
-  // Clamp the saved position to the actual database.
+  // ALWAYS START AT THE FIRST UNREVIEWED IMAGE
+  // ----------------------------------------------------------
+  // getCurrentReviewImage() is only called for a fresh
+  // Reviewer load (page open / sidebar open) — Next and Back
+  // use loadReviewImageForRow() directly and do plain +1 / -1,
+  // with no skipping.
+  //
+  // On a fresh load, ignore whatever row happened to be
+  // stored and scan from row 2 for the first row that has no
+  // reviewing info yet, so the Reviewer always resumes exactly
+  // where genuine review work left off — not at row 2, and not
+  // at a row that was already reviewed.
   // --------------------------------------------------------
 
-  if (
-    row < REVIEWER.START_ROW
-  ) {
-
-    row =
-      REVIEWER.START_ROW;
-
-  }
+  const row =
+    findFirstUnreviewedRow();
 
 
-  if (
-    row > lastRow
-  ) {
+  if (row === null) {
 
-    row =
-      lastRow;
-
-
-    saveReviewerPosition(
-      row
+    throw new Error(
+      "First Pass review complete — " +
+      "every image has been reviewed or marked Reject."
     );
 
   }
+
+
+  saveReviewerPosition(
+    row
+  );
+
+
+  return loadReviewImageForRow(
+    row
+  );
+
+}
+
+
+// ==========================================================
+// LOAD REVIEW IMAGE FOR A SPECIFIC ROW
+// ----------------------------------------------------------
+// Builds the JSON-safe payload for exactly the row given —
+// no lookup, no clamping, no skipping. This is the shared
+// low-level loader used by getCurrentReviewImage() (after it
+// has decided which row to show) and directly by
+// nextReviewImage() / previousReviewImage(), so that Next and
+// Back are plain +1 / -1 with nothing smarter layered on top.
+// ==========================================================
+
+function loadReviewImageForRow(row) {
+
+  const sheet =
+    getMediaSheet();
+
+
+  if (!sheet) {
+
+    throw new Error(
+      "Media Database sheet not found."
+    );
+
+  }
+
+
+  const lastRow =
+    sheet.getLastRow();
 
 
   const record =
@@ -643,6 +681,86 @@ function getMediaRecordByRow(rowNumber) {
 
 
 // ==========================================================
+// FIND FIRST UNREVIEWED ROW
+// ----------------------------------------------------------
+// Scans the Media Database from row 2 downward and returns the
+// row number of the first row that has no reviewing info yet —
+// i.e. COL.REVIEW_STATUS is NOT "Reviewed". Rows graded
+// "Reject" count as reviewed too, since saveReview() always
+// stamps REVIEW_STATUS = "Reviewed" regardless of Grade.
+//
+// Returns null when every row has been reviewed (used as the
+// "First Pass complete" signal).
+//
+// This is a single-column bulk read (one getRange call), so
+// it's cheap to call on every fresh Reviewer load.
+//
+// This does NOT look at populated metadata (Name, Width,
+// Height, Aspect Ratio, Megapixels, etc.) — only the actual
+// review status field counts.
+// ==========================================================
+
+function findFirstUnreviewedRow() {
+
+  const sheet =
+    getMediaSheet();
+
+  if (!sheet) {
+
+    throw new Error(
+      "Media Database sheet not found."
+    );
+
+  }
+
+  const lastRow =
+    sheet.getLastRow();
+
+  if (
+    lastRow < REVIEWER.START_ROW
+  ) {
+
+    return null;
+
+  }
+
+  const statusValues =
+    sheet
+      .getRange(
+        REVIEWER.START_ROW,
+        COL.REVIEW_STATUS,
+        lastRow - REVIEWER.START_ROW + 1,
+        1
+      )
+      .getValues();
+
+  for (
+    let i = 0;
+    i < statusValues.length;
+    i++
+  ) {
+
+    const status =
+      String(
+        statusValues[i][0] || ""
+      ).trim();
+
+    if (
+      status !== "Reviewed"
+    ) {
+
+      return REVIEWER.START_ROW + i;
+
+    }
+
+  }
+
+  return null;
+
+}
+
+
+// ==========================================================
 // SAVE REVIEW
 // ==========================================================
 
@@ -852,18 +970,18 @@ function saveReview(reviewData) {
 
 
   // --------------------------------------------------------
-  // MOVE TO NEXT IMAGE
+  // NOTE: saveReview() intentionally does NOT move the
+  // reviewer position anymore.
+  //
+  // Previously this function advanced REVIEWER_LAST_ROW to
+  // currentRow + 1, and the Next button ALSO advanced it —
+  // silently skipping a row on every Save-then-Next click.
+  // Next/Back now do plain +1 / -1 on their own, and
+  // findFirstUnreviewedRow() (used by getCurrentReviewImage()
+  // on a fresh load, and by nextReviewImage() to detect
+  // completion) reports when every row has been reviewed.
+  // Saving a review no longer has any side effect on position.
   // --------------------------------------------------------
-
-  const nextRow =
-    Math.min(
-      currentRow + 1,
-      lastRow
-    );
-
-  saveReviewerPosition(
-    nextRow
-  );
 
   return {
 
@@ -874,10 +992,7 @@ function saveReview(reviewData) {
       "Review saved",
 
     currentRow:
-      currentRow,
-
-    nextRow:
-      nextRow
+      currentRow
 
   };
 
@@ -889,6 +1004,22 @@ function saveReview(reviewData) {
 // ==========================================================
 
 function nextReviewImage() {
+
+  // If every row is already reviewed, show the completion
+  // message instead of moving — don't do this check via
+  // getCurrentReviewImage(), since that function re-locates to
+  // the first unreviewed row, which would undo plain +1 math.
+
+  if (
+    findFirstUnreviewedRow() === null
+  ) {
+
+    throw new Error(
+      "First Pass review complete — " +
+      "every image has been reviewed or marked Reject."
+    );
+
+  }
 
   const sheet =
     getMediaSheet();
@@ -917,7 +1048,9 @@ function nextReviewImage() {
     nextRow
   );
 
-  return getCurrentReviewImage();
+  return loadReviewImageForRow(
+    nextRow
+  );
 
 }
 
@@ -941,7 +1074,9 @@ function previousReviewImage() {
     previousRow
   );
 
-  return getCurrentReviewImage();
+  return loadReviewImageForRow(
+    previousRow
+  );
 
 }
 
@@ -966,6 +1101,38 @@ function resetReviewerPosition() {
   Logger.log(
     "Reviewer position reset."
   );
+
+}
+
+
+// ==========================================================
+// DEBUG — FIRST UNREVIEWED ROW
+// ----------------------------------------------------------
+// Read-only. Confirms which row the Reviewer will jump to on
+// its next fresh load, without opening the Reviewer or
+// changing any stored position.
+// ==========================================================
+
+function debugFindFirstUnreviewedRow() {
+
+  const row =
+    findFirstUnreviewedRow();
+
+  if (row === null) {
+
+    Logger.log(
+      "No unreviewed row found — " +
+      "First Pass review is complete."
+    );
+
+  } else {
+
+    Logger.log(
+      "First unreviewed row: " +
+      row
+    );
+
+  }
 
 }
 
