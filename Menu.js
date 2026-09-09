@@ -28,18 +28,35 @@
 
 /**
  * Creates the custom spreadsheet menu.
+ *
+ * Called automatically by the spreadsheet onOpen trigger.
  */
-function onOpen() {
+function onOpen(e) {
 
-  SpreadsheetApp.getUi()
+  createAppMenu();
 
-    .createMenu("📸 " + APP.NAME)
+}
+
+
+/**
+ * Builds the custom application menu.
+ *
+ * IMPORTANT:
+ * SpreadsheetApp.getUi() is only called here because this
+ * function is specifically intended to run in a spreadsheet
+ * UI context.
+ */
+function createAppMenu() {
+
+  const ui = SpreadsheetApp.getUi();
+
+  ui.createMenu("📸 " + APP.NAME)
 
     // ------------------------------------------------------
     // Main
     // ------------------------------------------------------
 
-     .addItem(
+    .addItem(
       "Open Media Manager",
       "openDashboard"
     )
@@ -142,137 +159,17 @@ function onOpen() {
 
 
 // ==========================================================
-// USER INTERFACE
-// ==========================================================
-
-/**
- * Displays application information.
- */
-function showAbout() {
-
-  SpreadsheetApp
-    .getUi()
-    .alert(
-
-      APP.NAME +
-      "\nVersion " +
-      APP.VERSION +
-      "\n\n" +
-      APP.DESCRIPTION +
-      "\n\nCreated by " +
-      APP.AUTHOR +
-      "\n" +
-      APP.COPYRIGHT
-
-    );
-
-}
-
-
-// ==========================================================
-// MENU COMMANDS
-// ==========================================================
-
-/**
- * Runs the media synchronisation.
- */
-function syncDrive() {
-
-  sync();
-
-}
-
-
-/**
- * Runs the metadata refresh.
- */
-function refreshMetadataMenu() {
-
-  refreshMetadata();
-
-}
-
-
-/**
- * Refreshes thumbnails for all
- * records in the Media Database.
- */
-function refreshThumbnailsMenu() {
-
-  refreshThumbnails();
-
-}
-
-
-/**
- * Clears every imported media record.
- *
- * Keeps the header row intact.
- */
-function clearMediaDatabaseMenu() {
-
-  const ui =
-    SpreadsheetApp.getUi();
-
-
-  const response =
-    ui.alert(
-
-      "Reset Media Database",
-
-      "This will delete every imported media record.\n\n" +
-      "This cannot be undone.\n\n" +
-      "Continue?",
-
-      ui.ButtonSet.YES_NO
-
-    );
-
-
-  if (
-    response !== ui.Button.YES
-  ) {
-
-    return;
-
-  }
-
-
-  clearMediaDatabase();
-
-
-  ui.alert(
-    "Media database has been cleared."
-  );
-
-}
-
-
-// ==========================================================
-// SETTINGS
-// ==========================================================
-
-/**
- * Opens the Settings worksheet.
- */
-function openSettings() {
-
-  getSettingsSheet().activate();
-
-}
-
-
-// ==========================================================
 // DEVELOPMENT
 // ==========================================================
 
 /**
  * Rebuilds the custom menu.
  *
- * Useful while developing.
+ * Run this manually ONLY while the script is being executed
+ * from a spreadsheet-bound UI context.
  */
 function installMenu() {
 
-  onOpen();
+  createAppMenu();
 
 }
