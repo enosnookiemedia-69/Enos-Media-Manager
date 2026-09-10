@@ -159,6 +159,95 @@ function createAppMenu() {
 
 
 // ==========================================================
+// MENU COMMANDS
+// ----------------------------------------------------------
+// Thin wrappers so each menu item has a matching top-level
+// function for ui.createMenu().addItem() to call by name.
+// ==========================================================
+
+/**
+ * Runs the media synchronisation.
+ *
+ * Called from "Sync Media".
+ */
+function syncDrive() {
+
+  sync();
+
+}
+
+
+/**
+ * Runs the metadata refresh.
+ *
+ * Called from "Refresh Metadata".
+ */
+function refreshMetadataMenu() {
+
+  refreshMetadata();
+
+}
+
+
+/**
+ * Refreshes thumbnails for all records in the Media Database.
+ *
+ * Called from "Refresh Thumbnails".
+ */
+function refreshThumbnailsMenu() {
+
+  refreshThumbnails();
+
+}
+
+
+// ==========================================================
+// SETTINGS
+// ==========================================================
+
+/**
+ * Opens the Settings worksheet.
+ *
+ * Called from "Settings".
+ */
+function openSettings() {
+
+  getSettingsSheet().activate();
+
+}
+
+
+// ==========================================================
+// ABOUT
+// ==========================================================
+
+/**
+ * Displays application information.
+ *
+ * Called from "About".
+ */
+function showAbout() {
+
+  SpreadsheetApp
+    .getUi()
+    .alert(
+
+      APP.NAME +
+      "\nVersion " +
+      APP.VERSION +
+      "\n\n" +
+      APP.DESCRIPTION +
+      "\n\nCreated by " +
+      APP.AUTHOR +
+      "\n" +
+      APP.COPYRIGHT
+
+    );
+
+}
+
+
+// ==========================================================
 // DEVELOPMENT
 // ==========================================================
 

@@ -498,9 +498,25 @@ function getSecondPassCandidates(category) {
       continue;
     }
 
-    if (
+        if (
       String(record.reviewStatus || "").trim() !==
       "Reviewed"
+    ) {
+      continue;
+    }
+
+    // --------------------------------------------------------
+    // EXCLUDE REJECTED IMAGES
+    // ----------------------------------------------------------
+    // Reject is a First Pass "Not for Book" decision. It must
+    // be a hard, permanent exclusion — Second Pass should never
+    // re-surface an image Enos already rejected, even if a
+    // category runs short on S/A/B/C candidates.
+    // --------------------------------------------------------
+
+    if (
+      String(record.grade || "").trim() ===
+      "Reject"
     ) {
       continue;
     }

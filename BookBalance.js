@@ -1,0 +1,738 @@
+/**
+ * ==========================================================
+ * BOOKBALANCE.GS
+ * ----------------------------------------------------------
+ * Manages the Book Image Balance workflow.
+ *
+ * Purpose
+ * -------
+ * Final Book Image Possibilities holds every image that has
+ * been auto-pushed (Hero Image / Final Book from the First
+ * Pass Reviewer) or added by the Second Pass Reviewer.
+ *
+ * Book Image Balance is the curated subset of that list — the
+ * actual final candidate pool the book will be laid out from.
+ * It holds ONE record per image for:
+ *
+ * • Every image auto-pushed as Hero Image or Final Book
+ *   (Status = "Pushed") — these will almost certainly be
+ *   used in the book.
+ * • Every image added by the Second Pass Reviewer
+ *   (Status = "Reviewed") — these passed Second Pass and
+ *   count toward each category's x2 target.
+ *
+ * Together this is the ~246-image balanced pool (2x the 123
+ * images actually needed — CONFIG.TARGETS.FINAL_BOOK) ready
+ * for final layout selection.
+ *
+ * Row structure is identical to Final Book Image Possibilities
+ * (BOOKLIST.COLUMNS), so buildBookRow() from BookList.gs is
+ * reused directly rather than duplicated here.
+ *
+ * Communicates with:
+ * • Config.gs (CONFIG.SHEETS.BOOK_BALANCE)
+ * • Database.gs (getAllMedia)
+ * • MediaObject.gs (rowToMediaObject)
+ * • BookList.gs (BOOKLIST.COLUMNS, buildBookRow)
+ * • Review.gs (Hero / Final Book auto-push)
+ * • SecondPassEngine.gs (Second Pass "add" decisions)
+ * ==========================================================
+ */
+
+
+// ==========================================================
+// BOOK BALANCE SETTINGS
+// ----------------------------------------------------------
+// Column layout is identical to Final Book Image
+// Possibilities (BOOKLIST.COLUMNS), so buildBookRow() can be
+// reused as-is to build a Book Image Balance row.
+// ==========================================================
+
+const BOOK_BALANCE = {
+
+  START_ROW: 2,
+
+  COLUMNS: BOOKLIST.COLUMNS
+
+};
+
+
+// ==========================================================
+// SETUP
+// ----------------------------------------------------------
+// One-time setup — creates the Book Image Balance tab (if it
+// doesn't already exist) and writes the header row so it
+// matches BOOKLIST.COLUMNS exactly.
+//
+// Safe to re-run: if the sheet already exists with a header
+// row in place, it leaves it alone rather than overwriting it.
+//
+// Run this once from the Apps Script editor (select
+// setupBookImageBalanceSheet in the function dropdown, then
+// Run) after pasting these files in, before using "Rebuild
+// Book Image Balance" from the menu.
+// ==========================================================
+
+function setupBookImageBalanceSheet() {
+
+  const spreadsheet =
+    SpreadsheetApp.getActiveSpreadsheet();
+
+  let sheet =
+    spreadsheet.getSheetByName(
+      CONFIG.SHEETS.BOOK_BALANCE
+    );
+
+  const headers = [
+
+    "Thumbnail",
+    "File ID",
+    "File Name",
+    "Year",
+    "Photographer",
+    "Category",
+    "Grade",
+    "Story Value",
+    "Hero",
+    "Editorial Score",
+    "Layout Suitability",
+    "Print Suitability",
+    "Aspect Ratio",
+    "Orientation",
+    "Caption",
+    "Spread",
+    "Page",
+    "Status",
+    "Notes"
+
+  ];
+
+  if (!sheet) {
+
+    sheet =
+      spreadsheet.insertSheet(
+        CONFIG.SHEETS.BOOK_BALANCE
+      );
+
+    Logger.log(
+      "Created sheet: " +
+      CONFIG.SHEETS.BOOK_BALANCE
+    );
+
+  }
+
+  const existingHeaderRow =
+    sheet
+      .getRange(1, 1, 1, headers.length)
+      .getValues()[0];
+
+  const headerRowIsBlank =
+    existingHeaderRow.every(
+      function(cell) {
+        return cell === "" || cell === null;
+      }
+    );
+
+  if (!headerRowIsBlank) {
+
+    Logger.log(
+      "Header row already has content — leaving it " +
+      "untouched. Delete row 1 first if you want it " +
+      "rewritten."
+    );
+
+    return;
+
+  }
+
+  sheet
+    .getRange(1, 1, 1, headers.length)
+    .setValues([
+      headers
+    ]);
+
+  sheet
+    .getRange(1, 1, 1, headers.length)
+    .setFontWeight("bold");
+
+  sheet.setFrozenRows(1);
+
+  Logger.log(
+    "Header row written to " +
+    CONFIG.SHEETS.BOOK_BALANCE
+  );
+
+}
+
+
+// ==========================================================
+// BOOK BALANCE SHEET CACHE
+// ==========================================================
+
+let BOOK_BALANCE_SHEET = null;
+
+
+// ==========================================================
+// BOOK BALANCE SHEET ACCESS
+// ==========================================================
+
+/**
+ * Returns the Book Image Balance worksheet.
+ *
+ * The sheet must already exist (same convention as
+ * getBookSheet() in BookList.gs) — create a tab named exactly
+ * CONFIG.SHEETS.BOOK_BALANCE with a header row matching
+ * BOOKLIST.COLUMNS before using this.
+ *
+ * @returns {Sheet}
+ */
+function getBookBalanceSheet() {
+
+  if (!BOOK_BALANCE_SHEET) {
+
+    BOOK_BALANCE_SHEET =
+      SpreadsheetApp
+        .getActiveSpreadsheet()
+        .getSheetByName(
+          CONFIG.SHEETS.BOOK_BALANCE
+        );
+
+  }
+
+
+  if (!BOOK_BALANCE_SHEET) {
+
+    throw new Error(
+      "Book Image Balance sheet not found. Create a tab " +
+      "named \"" + CONFIG.SHEETS.BOOK_BALANCE + "\" first."
+    );
+
+  }
+
+
+  return BOOK_BALANCE_SHEET;
+
+}
+
+
+// ==========================================================
+// FIND BOOK BALANCE RECORD
+// ==========================================================
+
+/**
+ * Finds a Book Image Balance row using File ID.
+ *
+ * @param {String} fileId
+ * @returns {Number|null}
+ */
+function findBookBalanceRecordRow(fileId) {
+
+  const sheet =
+    getBookBalanceSheet();
+
+
+  const lastRow =
+    sheet.getLastRow();
+
+
+  if (
+    lastRow <
+    BOOK_BALANCE.START_ROW
+  ) {
+
+    return null;
+
+  }
+
+
+  const fileIds =
+    sheet
+      .getRange(
+        BOOK_BALANCE.START_ROW,
+        BOOK_BALANCE.COLUMNS.FILE_ID,
+        lastRow - BOOK_BALANCE.START_ROW + 1,
+        1
+      )
+      .getValues();
+
+
+  for (
+    let i = 0;
+    i < fileIds.length;
+    i++
+  ) {
+
+    if (
+      fileIds[i][0] === fileId
+    ) {
+
+      return (
+        BOOK_BALANCE.START_ROW + i
+      );
+
+    }
+
+  }
+
+
+  return null;
+
+}
+
+
+// ==========================================================
+// BOOK BALANCE RECORD CREATION / UPDATE
+// ==========================================================
+
+/**
+ * Adds a new Media Object to Book Image Balance.
+ */
+function addBookBalanceRecord(media) {
+
+  const sheet =
+    getBookBalanceSheet();
+
+
+  const row =
+    buildBookRow(media);
+
+
+  sheet.appendRow(row);
+
+}
+
+
+/**
+ * Updates an existing Book Image Balance record.
+ *
+ * Reuses buildBookRow() so manual editorial fields
+ * (Caption, Spread, Page, Status, Notes) are preserved
+ * exactly the same way they are in Final Book Image
+ * Possibilities.
+ */
+function updateBookBalanceRecord(
+  rowNumber,
+  media
+) {
+
+  const sheet =
+    getBookBalanceSheet();
+
+
+  const currentRow =
+    sheet
+      .getRange(
+        rowNumber,
+        1,
+        1,
+        BOOK_BALANCE.COLUMNS.NOTES
+      )
+      .getValues()[0];
+
+
+  const updatedRow =
+    buildBookRow(
+      media,
+      currentRow
+    );
+
+
+  sheet
+    .getRange(
+      rowNumber,
+      1,
+      1,
+      BOOK_BALANCE.COLUMNS.NOTES
+    )
+    .setValues([
+      updatedRow
+    ]);
+
+}
+
+
+// ==========================================================
+// STAMP STATUS
+// ----------------------------------------------------------
+// Only writes the given label when the Status cell is
+// currently blank, so manual editorial Status values
+// (e.g. "Shortlisted", "Final Selection") are never
+// overwritten. Mirrors stampStatusIfBlank() in BookList.gs.
+// ==========================================================
+
+function stampBalanceStatusIfBlank(rowNumber, statusLabel) {
+
+  if (!rowNumber) {
+
+    return;
+
+  }
+
+
+  const sheet =
+    getBookBalanceSheet();
+
+
+  const statusCell =
+    sheet.getRange(
+      rowNumber,
+      BOOK_BALANCE.COLUMNS.STATUS
+    );
+
+
+  const currentStatus =
+    statusCell.getValue();
+
+
+  if (!currentStatus) {
+
+    statusCell.setValue(
+      statusLabel
+    );
+
+  }
+
+}
+
+
+// ==========================================================
+// SYNC SINGLE RECORD TO BOOK BALANCE
+// ----------------------------------------------------------
+// Used by:
+// • Review.gs — Hero Image / Final Book auto-push
+//   (statusLabel = "Pushed")
+// • SecondPassEngine.gs — "add" decisions
+//   (statusLabel = "Reviewed")
+// ==========================================================
+
+function syncSingleMediaRecordToBookBalance(rawRow, statusLabel) {
+
+  statusLabel =
+    statusLabel || "Pushed";
+
+  const mediaRecord =
+    rowToMediaObject(
+      rawRow
+    );
+
+
+  if (!mediaRecord.id) {
+
+    return;
+
+  }
+
+
+  const existingRow =
+    findBookBalanceRecordRow(
+      mediaRecord.id
+    );
+
+
+  if (existingRow) {
+
+    updateBookBalanceRecord(
+      existingRow,
+      mediaRecord
+    );
+
+
+    stampBalanceStatusIfBlank(
+      existingRow,
+      statusLabel
+    );
+
+  }
+
+  else {
+
+    addBookBalanceRecord(
+      mediaRecord
+    );
+
+
+    const newRow =
+      findBookBalanceRecordRow(
+        mediaRecord.id
+      );
+
+
+    stampBalanceStatusIfBlank(
+      newRow,
+      statusLabel
+    );
+
+  }
+
+}
+
+
+// ==========================================================
+// FULL BACKFILL / RESYNC
+// ----------------------------------------------------------
+// Scans the entire Media Database and (re)builds Book Image
+// Balance from scratch criteria:
+//
+// • Hero Image = true   → Status "Pushed"
+// • Final Book = true   → Status "Pushed"
+// • Selection Stage = "Book Possibility" (Second Pass "Add")
+//                        → Status "Reviewed"
+//
+// Existing rows are updated in place (manual Caption / Spread
+// / Page / Status / Notes preserved); new matches are added.
+// Run this once after creating the sheet to backfill every
+// image that already qualified, and any time you want to
+// resync from scratch.
+// ==========================================================
+
+function syncBookBalanceFromMedia() {
+
+  info(
+    "Synchronising Book Image Balance..."
+  );
+
+
+  const media =
+    getAllMedia();
+
+
+  getBookBalanceSheet();
+
+
+  let added = 0;
+
+  let updated = 0;
+
+  let skipped = 0;
+
+
+  for (
+    let i = 1;
+    i < media.length;
+    i++
+  ) {
+
+    const record =
+      rowToMediaObject(
+        media[i]
+      );
+
+    if (!record.id) {
+      continue;
+    }
+
+    const qualifies =
+      record.hero === true ||
+      record.finalBook === true ||
+      String(record.selectionStage || "").trim() ===
+        "Book Possibility";
+
+    if (!qualifies) {
+      skipped++;
+      continue;
+    }
+
+    const statusLabel =
+      (record.hero === true || record.finalBook === true)
+        ? "Pushed"
+        : "Reviewed";
+
+    const existingRow =
+      findBookBalanceRecordRow(
+        record.id
+      );
+
+    if (existingRow) {
+
+      updateBookBalanceRecord(
+        existingRow,
+        record
+      );
+
+      stampBalanceStatusIfBlank(
+        existingRow,
+        statusLabel
+      );
+
+      updated++;
+
+    }
+
+    else {
+
+      addBookBalanceRecord(
+        record
+      );
+
+      const newRow =
+        findBookBalanceRecordRow(
+          record.id
+        );
+
+      stampBalanceStatusIfBlank(
+        newRow,
+        statusLabel
+      );
+
+      added++;
+
+    }
+
+  }
+
+
+  info(
+    "Book Image Balance Updated"
+  );
+
+  info(
+    "Added : " + added
+  );
+
+  info(
+    "Updated : " + updated
+  );
+
+  info(
+    "Not qualifying : " + skipped
+  );
+
+  return {
+    added: added,
+    updated: updated,
+    skipped: skipped
+  };
+
+}
+
+
+// ==========================================================
+// MENU COMMAND
+// ==========================================================
+
+/**
+ * Rebuilds Book Image Balance from the Media Database.
+ *
+ * Called from the "Rebuild Book Image Balance" menu item.
+ * Confirms first since this can write a large number of
+ * rows the first time it is run.
+ */
+function syncBookBalanceMenu() {
+
+  const ui =
+    SpreadsheetApp.getUi();
+
+  const response =
+    ui.alert(
+
+      "Rebuild Book Image Balance",
+
+      "This will add/update every Hero Image, Final Book, " +
+      "and Second-Pass-added image in Book Image Balance.\n\n" +
+      "Manually edited Caption, Spread, Page, Status and " +
+      "Notes values are preserved.\n\n" +
+      "Continue?",
+
+      ui.ButtonSet.YES_NO
+
+    );
+
+  if (
+    response !== ui.Button.YES
+  ) {
+
+    return;
+
+  }
+
+  const result =
+    syncBookBalanceFromMedia();
+
+  showSuccess(
+    "Book Image Balance rebuilt. Added " +
+    result.added +
+    ", updated " +
+    result.updated +
+    "."
+  );
+
+}
+
+
+// ==========================================================
+// DEVELOPMENT TESTS
+// ==========================================================
+
+/**
+ * Read-only test. Confirms the sheet can be found and logs
+ * how many images currently qualify, without writing anything.
+ */
+function testBookBalanceDryRun() {
+
+  const sheet =
+    getBookBalanceSheet();
+
+  Logger.log(
+    "Book Image Balance sheet: " +
+    sheet.getName()
+  );
+
+  const media =
+    getAllMedia();
+
+  let qualifying = 0;
+
+  let pushed = 0;
+
+  let secondPass = 0;
+
+  for (
+    let i = 1;
+    i < media.length;
+    i++
+  ) {
+
+    const record =
+      rowToMediaObject(
+        media[i]
+      );
+
+    if (!record.id) {
+      continue;
+    }
+
+    if (
+      record.hero === true ||
+      record.finalBook === true
+    ) {
+
+      qualifying++;
+      pushed++;
+      continue;
+
+    }
+
+    if (
+      String(record.selectionStage || "").trim() ===
+      "Book Possibility"
+    ) {
+
+      qualifying++;
+      secondPass++;
+
+    }
+
+  }
+
+  Logger.log(
+    "Qualifying images: " + qualifying +
+    " (Pushed: " + pushed +
+    " | Second Pass: " + secondPass + ")"
+  );
+
+  Logger.log(
+    "Target (CONFIG.TARGETS.FINAL_BOOK x2): " +
+    (CONFIG.TARGETS.FINAL_BOOK * 2)
+  );
+
+}
