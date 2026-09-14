@@ -102,14 +102,21 @@ function createAppMenu() {
     // Book Creation
     // ------------------------------------------------------
 
+     .addItem(
+      "Open Second Pass Reviewer",
+      "openSecondPassReviewer"
+    )
+
+    .addSeparator()
+
     .addItem(
-      "Open Image Reviewer",
-      "openImageReviewer"
+      "Rebuild Final Book Possibilities",
+      "rebuildFinalBookPossibilitiesMenu"
     )
 
     .addItem(
-      "Open Second Pass Reviewer",
-      "openSecondPassReviewer"
+      "Rebuild Book Image Balance",
+      "syncBookBalanceMenu"
     )
 
     .addSeparator()

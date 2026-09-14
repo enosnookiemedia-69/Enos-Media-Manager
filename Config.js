@@ -49,20 +49,15 @@ const CONFIG = {};
 
 CONFIG.SHEETS = {
 
-  SETTINGS: "Settings",
-
   MEDIA: "Media Database",
-
   BOOK: "Final Book Image Possibilities",
-
+  BOOK_BALANCE: "Book Image Balance",
   BOOK_LAYOUT: "Book Final Layout",
-
-  LOG: "Sync Log",
-
-  DASHBOARD: "Dashboard"
+  DASHBOARD: "Dashboard",
+  SETTINGS: "Settings",
+  LOG: "Sync Log"
 
 };
-
 
 // ==========================================================
 // MEDIA DATABASE COLUMN INDEXES

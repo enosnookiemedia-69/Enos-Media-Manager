@@ -268,9 +268,23 @@ function calculateCategoryQuotas() {
 // ==========================================================
 // BOOK LIST CATEGORY COUNTS
 // ----------------------------------------------------------
-// Counts how many images currently exist in Final Book Image
-// Possibilities per category (any row with a File ID).
+// Counts how many images currently count TOWARD each
+// category's target in Final Book Possibilities.
+//
+// Only rows already DECIDED in are counted:
+// • Status = "Pushed"   (Hero / Final Book certainty)
+// • Status = "Selected" (added during Second Pass)
+//
+// Status = "Candidate" (undecided Second Pass pool) and
+// Status = "Not Selected" (Second Pass skip) do NOT count —
+// otherwise progress would look "met" the moment the rebuild
+// fills the ~350 pool, before Second Pass has decided anything.
 // ==========================================================
+
+const BOOKLIST_DECIDED_STATUSES = {
+  "Pushed": true,
+  "Selected": true
+};
 
 function getBookListCategoryCounts() {
 
@@ -309,6 +323,15 @@ function getBookListCategoryCounts() {
       row[BOOKLIST.COLUMNS.FILE_ID - 1];
 
     if (!fileId) {
+      return;
+    }
+
+    const status =
+      String(
+        row[BOOKLIST.COLUMNS.STATUS - 1] || ""
+      ).trim();
+
+    if (!BOOKLIST_DECIDED_STATUSES[status]) {
       return;
     }
 
@@ -456,98 +479,101 @@ function getSecondPassProgress() {
 // ==========================================================
 // SECOND PASS CANDIDATES
 // ----------------------------------------------------------
-// Returns Media Database candidates for a given category,
-// sorted strongest-first (Grade, then Story Value).
+// Returns candidates for a given category, sorted
+// strongest-first (Grade, then Story Value).
 //
-// A candidate must be:
-// • Review Status = "Reviewed"
-// • NOT already Hero Image / Final Book (those were already
-//   auto-pushed by the First Pass Reviewer)
-// • NOT already decided by Second Pass ("Book Possibility"
-//   or "Not Selected")
-// • NOT already present in Final Book Image Possibilities
+// SOURCE: Final Book Possibilities (not Media Database).
+// rebuildFinalBookPossibilities() (BookList.gs) already built
+// the curated ~350-image pool — Reviewed, non-Reject, ranked
+// by editorial score, capped per category — so Second Pass
+// now narrows THAT pool down instead of re-deriving it from
+// the full Media Database.
+//
+// A candidate must be a Final Book Possibilities row with:
+// • Category = the requested category
+// • Status = "Candidate" (undecided — NOT "Pushed", which is
+//   a First Pass Hero/Final Book certainty already counted in,
+//   and NOT "Selected" / "Not Selected", which Second Pass has
+//   already decided on)
 // ==========================================================
 
 function getSecondPassCandidates(category) {
 
-  const media =
-    getAllMedia();
+  const sheet =
+    getBookSheet();
 
-  const bookFileIds =
-    getBookListFileIdSet();
+  const lastRow =
+    sheet.getLastRow();
 
   const candidates = [];
 
 
-  for (
-    let i = 1;
-    i < media.length;
-    i++
+  if (
+    lastRow < BOOKLIST.START_ROW
   ) {
 
-    const record =
-      rowToMediaObject(
-        media[i]
-      );
+    return candidates;
 
-    if (!record.id) {
-      continue;
-    }
+  }
 
-    if (record.category !== category) {
-      continue;
-    }
 
-        if (
-      String(record.reviewStatus || "").trim() !==
-      "Reviewed"
-    ) {
-      continue;
-    }
+  const rows =
+    sheet
+      .getRange(
+        BOOKLIST.START_ROW,
+        1,
+        lastRow - BOOKLIST.START_ROW + 1,
+        BOOKLIST.COLUMNS.NOTES
+      )
+      .getValues();
 
-    // --------------------------------------------------------
-    // EXCLUDE REJECTED IMAGES
-    // ----------------------------------------------------------
-    // Reject is a First Pass "Not for Book" decision. It must
-    // be a hard, permanent exclusion — Second Pass should never
-    // re-surface an image Enos already rejected, even if a
-    // category runs short on S/A/B/C candidates.
-    // --------------------------------------------------------
 
-    if (
-      String(record.grade || "").trim() ===
-      "Reject"
-    ) {
-      continue;
+  rows.forEach(function(row, index) {
+
+    const fileId =
+      row[BOOKLIST.COLUMNS.FILE_ID - 1];
+
+    if (!fileId) {
+      return;
     }
 
     if (
-      record.hero === true ||
-      record.finalBook === true
+      row[BOOKLIST.COLUMNS.CATEGORY - 1] !==
+      category
     ) {
-      continue;
+      return;
     }
 
-    const stage =
-      String(record.selectionStage || "").trim();
+    const status =
+      String(
+        row[BOOKLIST.COLUMNS.STATUS - 1] || ""
+      ).trim();
 
-    if (
-      stage === "Book Possibility" ||
-      stage === "Not Selected"
-    ) {
-      continue;
-    }
-
-    if (bookFileIds[record.id]) {
-      continue;
+    if (status !== "Candidate") {
+      return;
     }
 
     candidates.push({
-      row: i + 1,
-      record: record
+
+      row:
+        BOOKLIST.START_ROW + index,
+
+      record: {
+
+        id: fileId,
+        name: row[BOOKLIST.COLUMNS.FILE_NAME - 1],
+        grade: row[BOOKLIST.COLUMNS.GRADE - 1],
+        storyValue: row[BOOKLIST.COLUMNS.STORY_VALUE - 1],
+        layoutSuitability:
+          row[BOOKLIST.COLUMNS.LAYOUT_SUITABILITY - 1],
+        caption: row[BOOKLIST.COLUMNS.CAPTION - 1],
+        notes: row[BOOKLIST.COLUMNS.NOTES - 1]
+
+      }
+
     });
 
-  }
+  });
 
 
   candidates.sort(function(a, b) {
@@ -798,100 +824,112 @@ function getNextSecondPassImage(category) {
 // ----------------------------------------------------------
 // decision: "add" or "skip"
 //
-// "add"  → stamps Selection Stage = "Book Possibility" and
-//          syncs the record into Final Book Image
-//          Possibilities with Status = "Reviewed".
+// "row" is now a FINAL BOOK POSSIBILITIES row (candidates come
+// from that sheet — see getSecondPassCandidates() above), not
+// a Media Database row.
 //
-// "skip" → stamps Selection Stage = "Not Selected" so the
-//          image is not shown again by Second Pass.
+// "add"  → stamps that Final Book Possibilities row's Status
+//          = "Selected" (now counts toward the category
+//          target — see BOOKLIST_DECIDED_STATUSES) and mirrors
+//          Selection Stage = "Book Possibility" onto the
+//          matching Media Database row for back-reference.
+//
+// "skip" → stamps Status = "Not Selected" so the row is
+//          excluded from future candidate queries but stays
+//          in the sheet for reference, and mirrors Selection
+//          Stage = "Not Selected" onto Media Database.
 // ==========================================================
 
 function saveSecondPassDecision(row, decision) {
 
   const sheet =
-    getMediaSheet();
-
-  if (!sheet) {
-
-    throw new Error(
-      "Media Database sheet not found."
-    );
-
-  }
+    getBookSheet();
 
   const lastRow =
     sheet.getLastRow();
 
   if (
-    row < REVIEWER.START_ROW ||
+    row < BOOKLIST.START_ROW ||
     row > lastRow
   ) {
 
     throw new Error(
-      "Invalid Media Database row: " + row
+      "Invalid Final Book Possibilities row: " + row
+    );
+
+  }
+
+  if (
+    decision !== "add" &&
+    decision !== "skip"
+  ) {
+
+    throw new Error(
+      "Unknown Second Pass decision: " + decision
     );
 
   }
 
 
-  if (decision === "add") {
-
+  const fileId =
     sheet
       .getRange(
         row,
-        COL.SELECTION_STAGE
+        BOOKLIST.COLUMNS.FILE_ID
       )
-      .setValue(
-        "Book Possibility"
+      .getValue();
+
+  const newStatus =
+    decision === "add"
+      ? "Selected"
+      : "Not Selected";
+
+  sheet
+    .getRange(
+      row,
+      BOOKLIST.COLUMNS.STATUS
+    )
+    .setValue(
+      newStatus
+    );
+
+
+  // --------------------------------------------------------
+  // Mirror the decision onto Media Database for back-reference
+  // (Selection Stage column). Best-effort — Second Pass's own
+  // state lives on the Final Book Possibilities row above, so
+  // this must never block the decision if it fails.
+  // --------------------------------------------------------
+
+  try {
+
+    const mediaRow =
+      findRowByFileId(
+        fileId
       );
 
-    const rawRow =
-      sheet
+    if (mediaRow !== -1) {
+
+      getMediaSheet()
         .getRange(
-          row,
-          1,
-          1,
-          sheet.getLastColumn()
+          mediaRow,
+          COL.SELECTION_STAGE
         )
-        .getValues()[0];
-
-    try {
-
-      syncSingleMediaRecordToBookList(
-        rawRow,
-        "Reviewed"
-      );
-
-    }
-
-    catch (error) {
-
-      Logger.log(
-        "Second Pass: could not sync record to Book List: " +
-        error.message
-      );
+        .setValue(
+          decision === "add"
+            ? "Book Possibility"
+            : "Not Selected"
+        );
 
     }
 
   }
 
-  else if (decision === "skip") {
+  catch (error) {
 
-    sheet
-      .getRange(
-        row,
-        COL.SELECTION_STAGE
-      )
-      .setValue(
-        "Not Selected"
-      );
-
-  }
-
-  else {
-
-    throw new Error(
-      "Unknown Second Pass decision: " + decision
+    Logger.log(
+      "Second Pass: could not mirror decision to Media " +
+      "Database: " + error.message
     );
 
   }

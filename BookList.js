@@ -253,6 +253,356 @@ function syncBookList() {
 
 }
 
+// ==========================================================
+// REBUILD FINAL BOOK POSSIBILITIES (curated ~350 pool)
+// ----------------------------------------------------------
+// Full rebuild of Final Book Possibilities from the Media
+// Database. Replaces the old syncBookList() behaviour, which
+// copied EVERY image with no filter at all.
+//
+// A record qualifies when:
+// • Review Status = "Reviewed"
+// • Grade is NOT "Reject"
+//
+// Within each category, qualifying images are ranked by
+// calculateSelectionScore() (SelectionEngine.gs) and the
+// strongest scores are kept up to that category's cap:
+//
+//   cap = needed x FINAL_BOOK_POSSIBILITIES_CAP_MULTIPLIER
+//
+// "needed" comes from calculateCategoryQuotas()
+// (SecondPassEngine.gs), which is itself derived from the
+// Book Final Layout sheet. Book Image Balance's later target
+// is needed x2, so x3 here leaves Second Pass a wider pool to
+// narrow down from, landing around ~350 images total.
+//
+// Hero Image / Final Book images are always kept regardless
+// of rank or cap — they are a First Pass editorial certainty,
+// not a Second Pass candidate, and are stamped Status =
+// "Pushed" (matching the existing First Pass auto-push
+// convention). Everything else that makes the cut is stamped
+// Status = "Candidate".
+//
+// This REPLACES the sheet's data rows (clears them first) so
+// the sheet always reflects exactly the current qualifying
+// pool. Manual fields already set on an image (Caption,
+// Spread, Page, Status, Notes) are preserved across the
+// rebuild by matching on File ID before clearing.
+//
+// Run manually — from the Apps Script editor for now (menu
+// wiring is next) — once First Pass review is complete.
+// Safe to re-run any time.
+// ==========================================================
+
+const FINAL_BOOK_POSSIBILITIES_CAP_MULTIPLIER = 3;
+
+
+function rebuildFinalBookPossibilities() {
+
+  info(
+    "Rebuilding Final Book Possibilities..."
+  );
+
+
+  // --------------------------------------------------------
+  // Preserve existing manual fields (keyed by File ID)
+  // before the sheet is cleared.
+  // --------------------------------------------------------
+
+  const sheet =
+    getBookSheet();
+
+  const existingByFileId =
+    {};
+
+  const lastRow =
+    sheet.getLastRow();
+
+  if (lastRow >= BOOKLIST.START_ROW) {
+
+    const existingRows =
+      sheet
+        .getRange(
+          BOOKLIST.START_ROW,
+          1,
+          lastRow - BOOKLIST.START_ROW + 1,
+          BOOKLIST.COLUMNS.NOTES
+        )
+        .getValues();
+
+    existingRows.forEach(function(row) {
+
+      const fileId =
+        row[BOOKLIST.COLUMNS.FILE_ID - 1];
+
+      if (fileId) {
+        existingByFileId[fileId] = row;
+      }
+
+    });
+
+  }
+
+
+  // --------------------------------------------------------
+  // Build the qualifying pool, grouped by category.
+  // --------------------------------------------------------
+
+  const quotaData =
+    calculateCategoryQuotas();
+
+  const media =
+    getAllMedia();
+
+  const byCategory =
+    {};
+
+  for (
+    let i = 1;
+    i < media.length;
+    i++
+  ) {
+
+    const record =
+      rowToMediaObject(
+        media[i]
+      );
+
+    if (!record.id) {
+      continue;
+    }
+
+    if (
+      String(record.reviewStatus || "").trim() !==
+      "Reviewed"
+    ) {
+      continue;
+    }
+
+    if (
+      String(record.grade || "").trim() ===
+      "Reject"
+    ) {
+      continue;
+    }
+
+    const category =
+      record.category ||
+      "Uncategorized";
+
+    if (!byCategory[category]) {
+      byCategory[category] = [];
+    }
+
+    const existingRow =
+      existingByFileId[record.id];
+
+    const existingStatus =
+      existingRow
+        ? String(
+            existingRow[BOOKLIST.COLUMNS.STATUS - 1] || ""
+          ).trim()
+        : "";
+
+    const isCertainty =
+      record.hero === true ||
+      record.finalBook === true ||
+      existingStatus === "Selected" ||
+      existingStatus === "Pushed";
+
+    const score =
+      calculateSelectionScore(
+        mediaObjectToSelectionRecord(
+          record
+        )
+      );
+
+    byCategory[category].push({
+      record: record,
+      score: score,
+      isCertainty: isCertainty
+    });
+
+  }
+
+
+  // --------------------------------------------------------
+  // Rank and cap each category.
+  // --------------------------------------------------------
+
+  const selected =
+    [];
+
+  Object.keys(byCategory).forEach(function(category) {
+
+    const entries =
+      byCategory[category];
+
+    entries.sort(function(a, b) {
+      return b.score - a.score;
+    });
+
+    const quota =
+      quotaData.categories[category];
+
+    const cap =
+      quota
+        ? quota.needed * FINAL_BOOK_POSSIBILITIES_CAP_MULTIPLIER
+        : entries.length;
+
+    const certainties =
+      entries.filter(function(e) {
+        return e.isCertainty;
+      });
+
+    const others =
+      entries.filter(function(e) {
+        return !e.isCertainty;
+      });
+
+    const remainingSlots =
+      Math.max(
+        0,
+        cap - certainties.length
+      );
+
+    const keep =
+      certainties.concat(
+        others.slice(0, remainingSlots)
+      );
+
+    keep.forEach(function(e) {
+      selected.push(e);
+    });
+
+  });
+
+
+  // --------------------------------------------------------
+  // Clear existing data rows.
+  // --------------------------------------------------------
+
+  if (lastRow >= BOOKLIST.START_ROW) {
+
+    sheet
+      .getRange(
+        BOOKLIST.START_ROW,
+        1,
+        lastRow - BOOKLIST.START_ROW + 1,
+        BOOKLIST.COLUMNS.NOTES
+      )
+      .clearContent();
+
+  }
+
+
+  // --------------------------------------------------------
+  // Write the selected pool back, preserving manual fields
+  // and stamping Status only where none previously existed.
+  // --------------------------------------------------------
+
+  let written = 0;
+
+  selected.forEach(function(entry) {
+
+    const media =
+      entry.record;
+
+    const existingRow =
+      existingByFileId[media.id] ||
+      [];
+
+    const row =
+      buildBookRow(
+        media,
+        existingRow
+      );
+
+    if (!row[BOOKLIST.COLUMNS.STATUS - 1]) {
+
+      row[BOOKLIST.COLUMNS.STATUS - 1] =
+        entry.isCertainty
+          ? "Pushed"
+          : "Candidate";
+
+    }
+
+    sheet.appendRow(row);
+
+    written++;
+
+  });
+
+
+  info(
+    "Final Book Possibilities rebuilt."
+  );
+
+  info(
+    "Images written : " + written
+  );
+
+  info(
+    "Categories : " + Object.keys(byCategory).length
+  );
+
+
+  return {
+    written: written,
+    categories: Object.keys(byCategory).length
+  };
+
+}
+
+// ==========================================================
+// MENU COMMAND
+// ----------------------------------------------------------
+// Called from the "Rebuild Final Book Possibilities" menu
+// item. Confirms first since this clears and rewrites the
+// sheet's data rows every time it runs.
+// ==========================================================
+
+function rebuildFinalBookPossibilitiesMenu() {
+
+  const ui =
+    SpreadsheetApp.getUi();
+
+  const response =
+    ui.alert(
+
+      "Rebuild Final Book Possibilities",
+
+      "This will clear and rebuild Final Book Possibilities " +
+      "from every Reviewed, non-Reject image in the Media " +
+      "Database — ranked and capped per category.\n\n" +
+      "Manually edited Caption, Spread, Page, Status and " +
+      "Notes values are preserved.\n\n" +
+      "Continue?",
+
+      ui.ButtonSet.YES_NO
+
+    );
+
+  if (
+    response !== ui.Button.YES
+  ) {
+
+    return;
+
+  }
+
+  const result =
+    rebuildFinalBookPossibilities();
+
+  showSuccess(
+    "Final Book Possibilities rebuilt. " +
+    result.written +
+    " images across " +
+    result.categories +
+    " categories."
+  );
+
+}
 
 // ==========================================================
 // SYNC SINGLE RECORD TO BOOK LIST
@@ -1290,3 +1640,93 @@ function testBookListStatistics() {
 }
 
 
+
+
+
+
+function diagnoseFinalBookCategories() {
+
+  const sheet =
+    getBookSheet();
+
+  const lastRow =
+    sheet.getLastRow();
+
+  if (lastRow < BOOKLIST.START_ROW) {
+
+    Logger.log("Final Book Possibilities has no data rows.");
+    return;
+
+  }
+
+  const rows =
+    sheet
+      .getRange(
+        BOOKLIST.START_ROW,
+        1,
+        lastRow - BOOKLIST.START_ROW + 1,
+        BOOKLIST.COLUMNS.NOTES
+      )
+      .getValues();
+
+  const known =
+    {};
+
+  CONFIG.CATEGORIES.forEach(function(c) {
+    known[c] = true;
+  });
+
+  const outliers =
+    {};
+
+  rows.forEach(function(row) {
+
+    const fileName =
+      row[BOOKLIST.COLUMNS.FILE_NAME - 1];
+
+    const category =
+      row[BOOKLIST.COLUMNS.CATEGORY - 1] ||
+      "(blank)";
+
+    if (!known[category]) {
+
+      if (!outliers[category]) {
+        outliers[category] = [];
+      }
+
+      outliers[category].push(fileName);
+
+    }
+
+  });
+
+  Logger.log("==========================================");
+  Logger.log("CATEGORIES NOT IN CONFIG.CATEGORIES");
+  Logger.log("==========================================");
+
+  Object.keys(outliers).forEach(function(category) {
+
+    const files =
+      outliers[category];
+
+    Logger.log(
+      "\"" + category + "\" — " + files.length + " image(s)"
+    );
+
+    files.slice(0, 10).forEach(function(name) {
+      Logger.log("   • " + name);
+    });
+
+    if (files.length > 10) {
+      Logger.log("   ...and " + (files.length - 10) + " more");
+    }
+
+  });
+
+  if (Object.keys(outliers).length === 0) {
+    Logger.log("No outlier categories found.");
+  }
+
+  Logger.log("==========================================");
+
+}
