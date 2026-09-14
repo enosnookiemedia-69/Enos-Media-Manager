@@ -103,6 +103,11 @@ function createAppMenu() {
     // ------------------------------------------------------
 
      .addItem(
+      "Open Image Reviewer",
+      "openImageReviewer"
+    )
+
+     .addItem(
       "Open Second Pass Reviewer",
       "openSecondPassReviewer"
     )
