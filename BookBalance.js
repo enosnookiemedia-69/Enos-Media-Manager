@@ -736,3 +736,148 @@ function testBookBalanceDryRun() {
   );
 
 }
+
+
+
+
+/**
+ * Live-push wiring test for the Review.js (Hero/Final Book)
+ * and SecondPassEngine.js (Second Pass "Add") integration.
+ *
+ * Both call sites now call syncSingleMediaRecordToBookBalance()
+ * directly — this test calls that exact same function, so a
+ * PASS here confirms both integration points will work without
+ * needing to click through the Reviewer or Second Pass UI.
+ *
+ * WARNING: this DOES write to Book Image Balance (adds or
+ * updates one row) — that's the only way to prove the push
+ * actually lands. Pass a real File ID from Media Database to
+ * test a specific image, or leave blank to auto-pick the first
+ * Hero Image / Final Book image found.
+ */
+function testLivePushToBookBalance(fileId) {
+
+  const media =
+    getAllMedia();
+
+  let rawRow = null;
+
+  if (fileId) {
+
+    for (let i = 1; i < media.length; i++) {
+
+      if (media[i][COL.FILE_ID - 1] === fileId) {
+        rawRow = media[i];
+        break;
+      }
+
+    }
+
+    if (!rawRow) {
+
+      Logger.log(
+        "No Media Database row found for File ID: " + fileId
+      );
+
+      return;
+
+    }
+
+  }
+
+  else {
+
+    for (let i = 1; i < media.length; i++) {
+
+      const record =
+        rowToMediaObject(
+          media[i]
+        );
+
+      if (
+        record.hero === true ||
+        record.finalBook === true
+      ) {
+
+        rawRow = media[i];
+        fileId = record.id;
+        break;
+
+      }
+
+    }
+
+    if (!rawRow) {
+
+      Logger.log(
+        "No Hero Image / Final Book image found to test " +
+        "with. Pass a fileId instead, e.g. " +
+        "testLivePushToBookBalance('your-file-id')."
+      );
+
+      return;
+
+    }
+
+  }
+
+  Logger.log(
+    "Testing live push for File ID: " + fileId
+  );
+
+  const beforeRow =
+    findBookBalanceRecordRow(
+      fileId
+    );
+
+  Logger.log(
+    beforeRow
+      ? "Already in Book Image Balance at row " + beforeRow +
+        " before test — this run will update it."
+      : "Not yet in Book Image Balance — this run will add it."
+  );
+
+  try {
+
+    syncSingleMediaRecordToBookBalance(
+      rawRow,
+      "Pushed"
+    );
+
+  }
+
+  catch (error) {
+
+    Logger.log(
+      "FAIL — syncSingleMediaRecordToBookBalance threw: " +
+      error.message
+    );
+
+    return;
+
+  }
+
+  const afterRow =
+    findBookBalanceRecordRow(
+      fileId
+    );
+
+  if (afterRow) {
+
+    Logger.log(
+      "PASS — File ID found in Book Image Balance at row " +
+      afterRow + "."
+    );
+
+  }
+
+  else {
+
+    Logger.log(
+      "FAIL — File ID still not found in Book Image Balance " +
+      "after push."
+    );
+
+  }
+
+}

@@ -965,7 +965,40 @@ function saveReview(reviewData) {
 
     }
 
+    // ------------------------------------------------------
+    // ALSO LIVE-PUSH INTO BOOK IMAGE BALANCE
+    //
+    // Hero Image / Final Book are certainties for the 246
+    // pool, not just candidates — so push straight into Book
+    // Image Balance too, not only Final Book Possibilities.
+    // Status "Pushed" matches the label syncBookBalanceFromMedia()
+    // already uses for Hero/Final Book images.
+    // ------------------------------------------------------
+
+    try {
+
+      syncSingleMediaRecordToBookBalance(
+        updatedRecord,
+        "Pushed"
+      );
+
+    }
+
+    catch (error) {
+
+      Logger.log(
+        "Could not sync record to Book Image Balance: " +
+        error.message
+      );
+
+    }
+
   }
+
+ recordReviewActivity(
+    "FIRST_PASS",
+    "First Pass Review"
+  );
 
 
 

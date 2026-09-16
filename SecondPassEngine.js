@@ -894,7 +894,7 @@ function saveSecondPassDecision(row, decision) {
     );
 
 
-  // --------------------------------------------------------
+    // --------------------------------------------------------
   // Mirror the decision onto Media Database for back-reference
   // (Selection Stage column). Best-effort — Second Pass's own
   // state lives on the Final Book Possibilities row above, so
@@ -921,6 +921,43 @@ function saveSecondPassDecision(row, decision) {
             : "Not Selected"
         );
 
+      // ----------------------------------------------------
+      // LIVE-PUSH "ADD" DECISIONS INTO BOOK IMAGE BALANCE
+      //
+      // An "Add" decision should land in the 246 pool
+      // immediately, not wait for a separate "Rebuild Book
+      // Image Balance" batch run. Status "Reviewed" matches
+      // the label syncBookBalanceFromMedia() already uses
+      // for Second-Pass-added images.
+      // ----------------------------------------------------
+
+      if (decision === "add") {
+
+        try {
+
+          const mediaRawRow =
+            getMediaRecordByRow(
+              mediaRow
+            );
+
+          syncSingleMediaRecordToBookBalance(
+            mediaRawRow,
+            "Reviewed"
+          );
+
+        }
+
+        catch (balanceError) {
+
+          Logger.log(
+            "Second Pass: could not sync 'add' decision to " +
+            "Book Image Balance: " + balanceError.message
+          );
+
+        }
+
+      }
+
     }
 
   }
@@ -933,14 +970,6 @@ function saveSecondPassDecision(row, decision) {
     );
 
   }
-
-
-  return {
-    success: true
-  };
-
-}
-
 
 // ==========================================================
 // FIRST UNDER-TARGET CATEGORY
@@ -1029,4 +1058,5 @@ function testSecondPassProgress() {
 
   });
 
+}
 }

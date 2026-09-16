@@ -603,7 +603,7 @@ function sync() {
   );
 
 
-  info(
+   info(
     "Duration: " +
     duration.toFixed(1) +
     " seconds."
@@ -612,6 +612,16 @@ function sync() {
 
   info(
     "--------------------------------"
+  );
+
+
+  appendSyncLogRow(
+    "Drive Sync",
+    SYNC_STATS,
+    duration,
+    stoppedEarly
+      ? "Stopped early on time budget"
+      : ""
   );
 
 }
@@ -846,3 +856,6 @@ function testFullSyncPipeline() {
   info("==========================================");
 
 }
+
+
+

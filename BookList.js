@@ -477,6 +477,32 @@ function rebuildFinalBookPossibilities() {
 
   });
 
+// --------------------------------------------------------
+  // SORT INTO REVIEW ORDER
+  //
+  // Category grouping above is only used to calculate
+  // per-category quotas/caps. The sheet itself should read
+  // in the same order the images were actually reviewed in,
+  // not grouped by category — so sort chronologically by
+  // Review Date right before writing.
+  // --------------------------------------------------------
+
+  selected.sort(function(a, b) {
+
+    const dateA =
+      a.record.reviewDate
+        ? new Date(a.record.reviewDate).getTime()
+        : Infinity;
+
+    const dateB =
+      b.record.reviewDate
+        ? new Date(b.record.reviewDate).getTime()
+        : Infinity;
+
+    return dateA - dateB;
+
+  });
+
 
   // --------------------------------------------------------
   // Clear existing data rows.
