@@ -468,21 +468,19 @@ function syncSingleMediaRecordToBookBalance(rawRow, statusLabel) {
 
 
 // ==========================================================
-// FULL BACKFILL / RESYNC
+// FULL BACKFILL / RESYNC  (BATCHED VERSION)
 // ----------------------------------------------------------
-// Scans the entire Media Database and (re)builds Book Image
-// Balance from scratch criteria:
+// Replaces syncBookBalanceFromMedia() in BookBalance.js.
+// Same rules as before, but the sheet is read ONCE and
+// written ONCE instead of making several calls per image.
 //
 // • Hero Image = true   → Status "Pushed"
 // • Final Book = true   → Status "Pushed"
-// • Selection Stage = "Book Possibility" (Second Pass "Add")
-//                        → Status "Reviewed"
+// • Selection Stage = "Book Possibility" → Status "Reviewed"
 //
 // Existing rows are updated in place (manual Caption / Spread
-// / Page / Status / Notes preserved); new matches are added.
-// Run this once after creating the sheet to backfill every
-// image that already qualified, and any time you want to
-// resync from scratch.
+// / Page / Status / Notes preserved via buildBookRow);
+// new matches are added at the bottom.
 // ==========================================================
 
 function syncBookBalanceFromMedia() {
@@ -495,9 +493,83 @@ function syncBookBalanceFromMedia() {
   const media =
     getAllMedia();
 
+  const sheet =
+    getBookBalanceSheet();
 
-  getBookBalanceSheet();
+  const COLS =
+    BOOK_BALANCE.COLUMNS;
 
+  const width =
+    COLS.NOTES;
+
+  const startRow =
+    BOOK_BALANCE.START_ROW;
+
+
+  // --------------------------------------------------------
+  // ONE read of the existing sheet
+  // --------------------------------------------------------
+
+  const lastRow =
+    sheet.getLastRow();
+
+  const existingCount =
+    lastRow >= startRow
+      ? lastRow - startRow + 1
+      : 0;
+
+  let values = [];      // evaluated values (passed to buildBookRow)
+  let output = [];      // what gets written back
+
+  if (existingCount > 0) {
+
+    const range =
+      sheet.getRange(
+        startRow,
+        1,
+        existingCount,
+        width
+      );
+
+    values =
+      range.getValues();
+
+    const formulas =
+      range.getFormulas();
+
+    // Untouched rows keep their formulas (e.g. thumbnails)
+    output =
+      values.map(
+        function (rowValues, r) {
+          return rowValues.map(
+            function (v, c) {
+              return formulas[r][c] || v;
+            }
+          );
+        }
+      );
+
+  }
+
+
+  // File ID → index in values/output
+  const indexById = {};
+
+  for (let i = 0; i < values.length; i++) {
+
+    const id =
+      values[i][COLS.FILE_ID - 1];
+
+    if (id) {
+      indexById[id] = i;
+    }
+
+  }
+
+
+  // --------------------------------------------------------
+  // Build everything in memory
+  // --------------------------------------------------------
 
   let added = 0;
 
@@ -537,22 +609,22 @@ function syncBookBalanceFromMedia() {
         ? "Pushed"
         : "Reviewed";
 
-    const existingRow =
-      findBookBalanceRecordRow(
-        record.id
-      );
+    const idx =
+      indexById[record.id];
 
-    if (existingRow) {
+    if (idx !== undefined) {
 
-      updateBookBalanceRecord(
-        existingRow,
-        record
-      );
+      const updatedRow =
+        buildBookRow(
+          record,
+          values[idx]
+        );
 
-      stampBalanceStatusIfBlank(
-        existingRow,
-        statusLabel
-      );
+      if (!updatedRow[COLS.STATUS - 1]) {
+        updatedRow[COLS.STATUS - 1] = statusLabel;
+      }
+
+      output[idx] = updatedRow;
 
       updated++;
 
@@ -560,23 +632,57 @@ function syncBookBalanceFromMedia() {
 
     else {
 
-      addBookBalanceRecord(
-        record
-      );
-
       const newRow =
-        findBookBalanceRecordRow(
-          record.id
-        );
+        buildBookRow(record);
 
-      stampBalanceStatusIfBlank(
-        newRow,
-        statusLabel
-      );
+      if (!newRow[COLS.STATUS - 1]) {
+        newRow[COLS.STATUS - 1] = statusLabel;
+      }
+
+      output.push(newRow);
+
+      values.push(newRow);
+
+      indexById[record.id] = output.length - 1;
 
       added++;
 
     }
+
+  }
+
+
+  // --------------------------------------------------------
+  // ONE write
+  // --------------------------------------------------------
+
+  if (output.length > 0) {
+
+    const neededLastRow =
+      startRow + output.length - 1;
+
+    const maxRows =
+      sheet.getMaxRows();
+
+    if (neededLastRow > maxRows) {
+
+      sheet.insertRowsAfter(
+        maxRows,
+        neededLastRow - maxRows
+      );
+
+    }
+
+    sheet
+      .getRange(
+        startRow,
+        1,
+        output.length,
+        width
+      )
+      .setValues(output);
+
+    SpreadsheetApp.flush();
 
   }
 
@@ -879,5 +985,118 @@ function testLivePushToBookBalance(fileId) {
     );
 
   }
+
+}
+
+
+
+
+
+
+
+
+/**
+ * Diagnostic: finds WHICH cell makes the Book Image Balance
+ * update throw "Service error: Spreadsheets".
+ *
+ * Paste anywhere in BookBalance.js, pick
+ * diagnoseBookBalanceRow in the function dropdown, Run.
+ * Then send me the full Execution log.
+ *
+ * It writes the same values the real update would write,
+ * one cell at a time, so the failing column is identified.
+ */
+function diagnoseBookBalanceRow() {
+
+  // Same File ID as your failed test
+  const fileId =
+    "1p8r3uW-S7DPBWPNNA61YCJfcfaT8or8C";
+
+  const sheet =
+    getBookBalanceSheet();
+
+  const width =
+    BOOK_BALANCE.COLUMNS.NOTES;
+
+  Logger.log("Sheet: " + sheet.getName() +
+    " | maxRows=" + sheet.getMaxRows() +
+    " | maxCols=" + sheet.getMaxColumns() +
+    " | width needed=" + width);
+
+
+  // Step 1 - find the row
+  const rowNumber =
+    findBookBalanceRecordRow(fileId);
+
+  Logger.log("Step 1 row found: " + rowNumber);
+
+  if (!rowNumber) { return; }
+
+
+  // Step 2 - read current row
+  let currentRow;
+
+  try {
+    currentRow = sheet.getRange(rowNumber, 1, 1, width).getValues()[0];
+    Logger.log("Step 2 read OK, length " + currentRow.length);
+  } catch (e) {
+    Logger.log("Step 2 READ FAILED: " + e);
+    return;
+  }
+
+
+  // Step 3 - find the media record and build the row
+  const media = getAllMedia();
+
+  let record = null;
+
+  for (let i = 1; i < media.length; i++) {
+    const r = rowToMediaObject(media[i]);
+    if (r.id === fileId) { record = r; break; }
+  }
+
+  if (!record) {
+    Logger.log("Step 3: media record not found in Media Database");
+    return;
+  }
+
+  let updatedRow;
+
+  try {
+    updatedRow = buildBookRow(record, currentRow);
+    Logger.log("Step 3 buildBookRow OK, length " + updatedRow.length);
+  } catch (e) {
+    Logger.log("Step 3 buildBookRow FAILED: " + e);
+    return;
+  }
+
+
+  // Step 4 - inspect every value
+  for (let c = 0; c < updatedRow.length; c++) {
+
+    const v = updatedRow[c];
+    const t = (v === null) ? "null" : typeof v;
+    const len = (typeof v === "string") ? v.length : "";
+
+    Logger.log("col " + (c + 1) + " type=" + t +
+      (len !== "" ? " len=" + len : "") +
+      " value=" + String(v).substring(0, 80));
+
+  }
+
+
+  // Step 5 - write cell by cell
+  for (let c = 0; c < updatedRow.length; c++) {
+
+    try {
+      sheet.getRange(rowNumber, c + 1).setValue(updatedRow[c]);
+    } catch (e) {
+      Logger.log("Step 5 WRITE FAILED at column " + (c + 1) +
+        ": " + e);
+    }
+
+  }
+
+  Logger.log("Step 5 finished");
 
 }
