@@ -297,6 +297,12 @@ function addBookBalanceRecord(media) {
     buildBookRow(media);
 
 
+  // No thumbnails in this sheet. buildBookRow() returns a
+  // CellImage object in column 1 which cannot be written
+  // reliably, so it is blanked here.
+  row[0] = "";
+
+
   sheet.appendRow(row);
 
 }
@@ -337,15 +343,19 @@ function updateBookBalanceRecord(
     );
 
 
+  // Column 1 (thumbnail / CellImage) is deliberately NOT
+  // written back: setValues() throws "Service error:
+  // Spreadsheets" when it contains a CellImage object.
+  // Columns 2 onward are written as normal.
   sheet
     .getRange(
       rowNumber,
+      2,
       1,
-      1,
-      BOOK_BALANCE.COLUMNS.NOTES
+      BOOK_BALANCE.COLUMNS.NOTES - 1
     )
     .setValues([
-      updatedRow
+      updatedRow.slice(1)
     ]);
 
 }
@@ -470,9 +480,11 @@ function syncSingleMediaRecordToBookBalance(rawRow, statusLabel) {
 // ==========================================================
 // FULL BACKFILL / RESYNC  (BATCHED VERSION)
 // ----------------------------------------------------------
-// Replaces syncBookBalanceFromMedia() in BookBalance.js.
-// Same rules as before, but the sheet is read ONCE and
+// Same rules as the original, but the sheet is read ONCE and
 // written ONCE instead of making several calls per image.
+//
+// Column 1 (thumbnail / CellImage) is never written - the
+// final write covers columns 2 onward only.
 //
 // • Hero Image = true   → Status "Pushed"
 // • Final Book = true   → Status "Pushed"
@@ -537,7 +549,7 @@ function syncBookBalanceFromMedia() {
     const formulas =
       range.getFormulas();
 
-    // Untouched rows keep their formulas (e.g. thumbnails)
+    // Untouched rows keep their formulas
     output =
       values.map(
         function (rowValues, r) {
@@ -635,6 +647,8 @@ function syncBookBalanceFromMedia() {
       const newRow =
         buildBookRow(record);
 
+      newRow[0] = "";   // no thumbnails in this sheet
+
       if (!newRow[COLS.STATUS - 1]) {
         newRow[COLS.STATUS - 1] = statusLabel;
       }
@@ -673,14 +687,21 @@ function syncBookBalanceFromMedia() {
 
     }
 
+    // Columns 2..width only - column 1 (CellImage) is skipped
     sheet
       .getRange(
         startRow,
-        1,
+        2,
         output.length,
-        width
+        width - 1
       )
-      .setValues(output);
+      .setValues(
+        output.map(
+          function (r) {
+            return r.slice(1);
+          }
+        )
+      );
 
     SpreadsheetApp.flush();
 
@@ -985,118 +1006,5 @@ function testLivePushToBookBalance(fileId) {
     );
 
   }
-
-}
-
-
-
-
-
-
-
-
-/**
- * Diagnostic: finds WHICH cell makes the Book Image Balance
- * update throw "Service error: Spreadsheets".
- *
- * Paste anywhere in BookBalance.js, pick
- * diagnoseBookBalanceRow in the function dropdown, Run.
- * Then send me the full Execution log.
- *
- * It writes the same values the real update would write,
- * one cell at a time, so the failing column is identified.
- */
-function diagnoseBookBalanceRow() {
-
-  // Same File ID as your failed test
-  const fileId =
-    "1p8r3uW-S7DPBWPNNA61YCJfcfaT8or8C";
-
-  const sheet =
-    getBookBalanceSheet();
-
-  const width =
-    BOOK_BALANCE.COLUMNS.NOTES;
-
-  Logger.log("Sheet: " + sheet.getName() +
-    " | maxRows=" + sheet.getMaxRows() +
-    " | maxCols=" + sheet.getMaxColumns() +
-    " | width needed=" + width);
-
-
-  // Step 1 - find the row
-  const rowNumber =
-    findBookBalanceRecordRow(fileId);
-
-  Logger.log("Step 1 row found: " + rowNumber);
-
-  if (!rowNumber) { return; }
-
-
-  // Step 2 - read current row
-  let currentRow;
-
-  try {
-    currentRow = sheet.getRange(rowNumber, 1, 1, width).getValues()[0];
-    Logger.log("Step 2 read OK, length " + currentRow.length);
-  } catch (e) {
-    Logger.log("Step 2 READ FAILED: " + e);
-    return;
-  }
-
-
-  // Step 3 - find the media record and build the row
-  const media = getAllMedia();
-
-  let record = null;
-
-  for (let i = 1; i < media.length; i++) {
-    const r = rowToMediaObject(media[i]);
-    if (r.id === fileId) { record = r; break; }
-  }
-
-  if (!record) {
-    Logger.log("Step 3: media record not found in Media Database");
-    return;
-  }
-
-  let updatedRow;
-
-  try {
-    updatedRow = buildBookRow(record, currentRow);
-    Logger.log("Step 3 buildBookRow OK, length " + updatedRow.length);
-  } catch (e) {
-    Logger.log("Step 3 buildBookRow FAILED: " + e);
-    return;
-  }
-
-
-  // Step 4 - inspect every value
-  for (let c = 0; c < updatedRow.length; c++) {
-
-    const v = updatedRow[c];
-    const t = (v === null) ? "null" : typeof v;
-    const len = (typeof v === "string") ? v.length : "";
-
-    Logger.log("col " + (c + 1) + " type=" + t +
-      (len !== "" ? " len=" + len : "") +
-      " value=" + String(v).substring(0, 80));
-
-  }
-
-
-  // Step 5 - write cell by cell
-  for (let c = 0; c < updatedRow.length; c++) {
-
-    try {
-      sheet.getRange(rowNumber, c + 1).setValue(updatedRow[c]);
-    } catch (e) {
-      Logger.log("Step 5 WRITE FAILED at column " + (c + 1) +
-        ": " + e);
-    }
-
-  }
-
-  Logger.log("Step 5 finished");
 
 }
