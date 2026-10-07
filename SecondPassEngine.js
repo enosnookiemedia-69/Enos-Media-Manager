@@ -43,33 +43,43 @@
 
 const BOOK_LAYOUT_COL = {
 
-  THUMBNAIL: 1,
-  PAGE: 2,
-  POSITION: 3,
-  FILE_ID: 4,
-  FILE_NAME: 5,
-  YEAR: 6,
-  PHOTOGRAPHER: 7,
-  CATEGORY: 8,
-  SECTION: 9,
-  GRADE: 10,
-  STORY_VALUE: 11,
-  HERO: 12,
-  EDITORIAL_SCORE: 13,
-  LAYOUT_SUITABILITY: 14,
-  PRINT_SUITABILITY: 15,
-  ASPECT_RATIO: 16,
-  ORIENTATION: 17,
-  LAYOUT_TYPE: 18,
-  SPREAD: 19,
-  SEQUENCE: 20,
-  CAPTION: 21,
-  STATUS: 22,
-  NOTES: 23
+  FILE_NAME: 1,
+  YEAR: 2,
+  CATEGORY: 3,
+  POSITION: 4,
+  SEQUENCE: 5,
+  PAGE: 6,
+  SECTION: 7,
+  LAYOUT_SUITABILITY: 8,
+  ORIENTATION: 9,
+  LAYOUT_TYPE: 10,
+  SPREAD: 11,
+  CAPTION: 12,
+  NOTES: 13,
+  PHOTOGRAPHER: 14,
+  EDITORIAL_SCORE: 15,
+  GRADE: 16,
+  STORY_VALUE: 17,
+  HERO: 18,
+  PRINT_SUITABILITY: 19,
+  ASPECT_RATIO: 20,
+  STATUS: 21
 
 };
 
 const BOOK_LAYOUT_START_ROW = 2;
+
+// ==========================================================
+// BOOK LAYOUT CATEGORY ALIASES
+// ----------------------------------------------------------
+// Book Final Layout spells some categories differently from
+// the Media Database. Map them here so quota keys match.
+// ==========================================================
+
+const BOOK_LAYOUT_CATEGORY_ALIASES = {
+  "Artwork & Burns": "Artworks & Burns"
+};
+
 
 
 // ==========================================================
@@ -119,6 +129,7 @@ function secondPassGradeRank(grade) {
 // 2 candidate images to choose between per book slot).
 // ==========================================================
 
+
 function calculateCategoryQuotas() {
 
   const sheet =
@@ -150,12 +161,15 @@ function calculateCategoryQuotas() {
         BOOK_LAYOUT_START_ROW,
         1,
         lastRow - BOOK_LAYOUT_START_ROW + 1,
-        BOOK_LAYOUT_COL.NOTES
+        BOOK_LAYOUT_COL.STATUS
       )
       .getValues();
 
 
   const seenSpreads = {};
+
+  const manualTargets =
+    CONFIG.MANUAL_CATEGORY_TARGETS || {};
 
 
   rows.forEach(function(row) {
@@ -172,13 +186,43 @@ function calculateCategoryQuotas() {
         row[BOOK_LAYOUT_COL.LAYOUT_TYPE - 1] || ""
       );
 
-    if (layoutType === "Text") {
+    const layoutSuitability =
+      String(
+        row[BOOK_LAYOUT_COL.LAYOUT_SUITABILITY - 1] || ""
+      );
+
+    if (
+      layoutType === "Text" ||
+      layoutSuitability === "Text"
+    ) {
       return;
     }
 
+    const rawCategory =
+      String(
+        row[BOOK_LAYOUT_COL.CATEGORY - 1] || ""
+      ).trim();
+
     const category =
-      row[BOOK_LAYOUT_COL.CATEGORY - 1] ||
+      BOOK_LAYOUT_CATEGORY_ALIASES[rawCategory] ||
+      rawCategory ||
       "Uncategorized";
+
+    // Skip (and report) anything that is not a real photo category.
+    if (
+      CONFIG.CATEGORIES.indexOf(category) === -1 &&
+      !manualTargets[category]
+    ) {
+
+      Logger.log(
+        "Quota skip: page " +
+        row[BOOK_LAYOUT_COL.PAGE - 1] +
+        " has category \"" + category + "\""
+      );
+
+      return;
+
+    }
 
     const hero =
       row[BOOK_LAYOUT_COL.HERO - 1];
@@ -200,7 +244,9 @@ function calculateCategoryQuotas() {
     }
 
     else if (
-      layoutType.toLowerCase().indexOf("dual") !== -1
+      (layoutType + " " + layoutSuitability)
+        .toLowerCase()
+        .indexOf("dual") !== -1
     ) {
 
       contribution = 2;
@@ -223,7 +269,7 @@ function calculateCategoryQuotas() {
   });
 
 
-   Object.keys(quotas).forEach(function(category) {
+  Object.keys(quotas).forEach(function(category) {
 
     quotas[category].target =
       quotas[category].needed * 2;
@@ -240,12 +286,16 @@ function calculateCategoryQuotas() {
   // from layout rows.
   // --------------------------------------------------------
 
-  Object.keys(
-    CONFIG.MANUAL_CATEGORY_TARGETS || {}
-  ).forEach(function(category) {
+  Object.keys(manualTargets).forEach(function(category) {
 
     const needed =
-      CONFIG.MANUAL_CATEGORY_TARGETS[category];
+      manualTargets[category];
+
+    // Avoid double counting if layout rows already
+    // contributed to this category.
+    if (quotas[category]) {
+      totalNeeded -= quotas[category].needed;
+    }
 
     quotas[category] = {
       needed: needed,
@@ -263,7 +313,6 @@ function calculateCategoryQuotas() {
   };
 
 }
-
 
 // ==========================================================
 // BOOK LIST CATEGORY COUNTS
