@@ -297,12 +297,10 @@ function calculateCategoryQuotas() {
       totalNeeded -= quotas[category].needed;
     }
 
-    quotas[category] = {
-      needed: needed,
-      target: needed * 2
+     quotas[category] = {
+      needed: needed + (quotas[category] ? quotas[category].needed : 0),
+      target: (needed + (quotas[category] ? quotas[category].needed : 0)) * 2
     };
-
-    totalNeeded += needed;
 
   });
 
@@ -311,7 +309,6 @@ function calculateCategoryQuotas() {
     categories: quotas,
     totalNeeded: totalNeeded
   };
-
 }
 
 // ==========================================================
